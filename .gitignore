@@ -1,0 +1,9 @@
+venv/
+instance/
+__pycache__/
+*.pyc
+.env
+verifier_dates_brutes.py
+verifier_dates.py
+verifier_historique.py
+test.py

@@ -1,0 +1,357 @@
+{% extends "base.html" %}
+
+{% block title %}Données — Détections thermiques
+{% endblock %}
+
+{% block content %}
+	<h1>{{ titre }}</h1>
+	<p class="data">
+		{{ total }}
+		détections au total
+		{% if date_min and date_max %}
+			— du
+			{{ date_min }}
+			au
+			{{ date_max }}
+		{% endif %}
+		{% if derniere_maj and derniere_maj.date %}
+			<br>Dernière mise à jour :
+			{{ derniere_maj.date }}
+			{{ derniere_maj.heure }}
+		{% endif %}
+	</p>
+
+	<details class="card accordeon" id="accordeonFiltre">
+		<summary>
+			<h2 style="display:inline;">Filtrer l'affichage</h2>
+			<span class="accordeon-fleche">▾</span>
+		</summary>
+
+		<div class="accordeon-contenu">
+			<form method="GET" action="{{ url_for('donnees') }}">
+				<div class="ligne-filtres">
+					<label>
+						Date de début
+						<input type="text" name="date_debut" id="dateDebut" placeholder="jj/mm/aaaa" autocomplete="off" value="{{ filtres_actuels.get('date_debut', '') }}">
+					</label>
+					<label>
+						Date de fin
+						<input type="text" name="date_fin" id="dateFin" placeholder="jj/mm/aaaa" autocomplete="off" value="{{ filtres_actuels.get('date_fin', '') }}">
+					</label>
+				</div>
+
+				<div class="ligne-filtres">
+					<label>
+						Température min (K)
+						<input type="number" name="intensite_min" step="0.1" placeholder="ex : 330" value="{{ filtres_actuels.get('intensite_min', '') }}">
+					</label>
+					<label>
+						Température max (K)
+						<input type="number" name="intensite_max" step="0.1" placeholder="ex : 400" value="{{ filtres_actuels.get('intensite_max', '') }}">
+					</label>
+					<label>
+						FRP min (MW)
+						<input type="number" name="frp_min" step="0.1" placeholder="ex : 8" value="{{ filtres_actuels.get('frp_min', '') }}">
+					</label>
+					<label>
+						FRP max (MW)
+						<input type="number" name="frp_max" step="0.1" placeholder="ex : 100" value="{{ filtres_actuels.get('frp_max', '') }}">
+					</label>
+				</div>
+
+				<div class="ligne-filtres">
+					<label>
+						Région
+						<select name="zone">
+							{% for valeur, libelle in regions.items() %}
+								<option value="{{ valeur }}" {{ 'selected' if filtres_actuels.get('zone', '') == valeur }}>{{ libelle }}</option>
+							{% endfor %}
+						</select>
+					</label>
+					<label>
+						Confiance
+						<select name="confidence">
+							<option value="" {{ 'selected' if filtres_actuels.get('confidence', '') == '' }}>Toutes</option>
+							<option value="n" {{ 'selected' if filtres_actuels.get('confidence', '') == 'n' }}>Nominale</option>
+							<option value="h" {{ 'selected' if filtres_actuels.get('confidence', '') == 'h' }}>Haute</option>
+						</select>
+					</label>
+					<label>
+						Jour / Nuit
+						<select name="daynight">
+							<option value="" {{ 'selected' if filtres_actuels.get('daynight', '') == '' }}>Les deux</option>
+							<option value="D" {{ 'selected' if filtres_actuels.get('daynight', '') == 'D' }}>Jour</option>
+							<option value="N" {{ 'selected' if filtres_actuels.get('daynight', '') == 'N' }}>Nuit</option>
+						</select>
+					</label>
+					<label>
+						Résultats par page
+						<select name="par_page">
+							<option value="50" {{ 'selected' if filtres_actuels.get('par_page', '200') == '50' }}>50</option>
+							<option value="200" {{ 'selected' if filtres_actuels.get('par_page', '200') == '200' }}>200</option>
+							<option value="500" {{ 'selected' if filtres_actuels.get('par_page', '200') == '500' }}>500</option>
+							<option value="1000" {{ 'selected' if filtres_actuels.get('par_page', '200') == '1000' }}>1000</option>
+						</select>
+					</label>
+				</div>
+
+				<div class="ligne-boutons">
+					<button type="submit" class="btn btn-primary">Appliquer les filtres</button>
+					<a href="{{ url_for('donnees') }}" class="btn">Réinitialiser</a>
+				</div>
+			</form>
+
+			{% if filtres_actuels %}
+				<p class="data" style="margin-top: 0.75rem;">{{ nb_filtres }}
+					détection{{ 's' if nb_filtres != 1 else '' }}
+					correspondent à ces filtres</p>
+			{% endif %}
+		</div>
+	</details>
+
+	<details class="card accordeon">
+		<summary>
+			<h2 style="display:inline;">Exporter la sélection</h2>
+			<span class="accordeon-fleche">▾</span>
+		</summary>
+
+		<div class="accordeon-contenu">
+			<p style="color: var(--text-muted); font-size: 0.9rem;">
+				Le téléchargement inclut toute la sélection filtrée (pas seulement la page affichée), avec toutes les colonnes disponibles (position, température, FRP, satellite, confiance, jour/nuit, dimensions du pixel).
+			</p>
+			<button type="button" id="btnExport" class="btn btn-primary">Télécharger le CSV de cette sélection</button>
+			<div id="messageExport" class="message message-succes" style="display: none; margin-top: 1rem;"></div>
+		</div>
+	</details>
+
+	<h2>Résultats — page
+		{{ page }}
+		sur
+		{{ nb_pages }}</h2>
+
+	<div class="pagination">
+		{% if page > 1 %}
+			<a class="btn" href="{{ url_for('donnees', page=page-1, **base_params) }}">‹ Précédent</a>
+		{% endif %}
+		<form method="GET" action="{{ url_for('donnees') }}" class="pagination-inline">
+			{% for k, v in base_params.items() %}
+				<input type="hidden" name="{{ k }}" value="{{ v }}">
+			{% endfor %}
+			Page
+			<input type="number" name="page" min="1" max="{{ nb_pages }}" value="{{ page }}" class="input-page">
+			/
+			{{ nb_pages }}
+		</form>
+		{% if page < nb_pages %}
+			<a class="btn" href="{{ url_for('donnees', page=page+1, **base_params) }}">Suivant ›</a>
+		{% endif %}
+	</div>
+
+	{% if not evenements %}
+		<div class="card">
+			<p>Aucune détection ne correspond.
+				{% if current_user.is_authenticated %}
+					<a href="{{ url_for('importer') }}">Lancez un import</a>
+					pour récupérer les dernières données FIRMS.
+				{% endif %}
+			</p>
+		</div>
+	{% endif %}
+
+	{% for e in evenements %}
+		<div class="card evenement">
+			<div class="evenement-info">
+				<span class="badge-intensite {{ 'badge-rouge' if e.frp and e.frp >= 20 else 'badge-orange' if e.frp and e.frp >= 8 else 'badge-jaune' }}"></span>
+				<span class="data">{{ e.date }}
+					{{ e.heure or '' }}</span>
+				—
+				{{ e.zone }}
+				<span class="data" style="font-size: 0.8rem;">
+					{% if e.satellite %}
+						· sat.
+						{{ e.satellite }}
+					{% endif %}
+					{% if e.confidence %}
+						· confiance
+						{{ e.confidence }}
+					{% endif %}
+					{% if e.daynight %}
+						·
+						{{ 'jour' if e.daynight == 'D' else 'nuit' }}
+					{% endif %}
+					{% if e.scan and e.track %}
+						· pixel
+						{{ e.scan }}×{{ e.track }}
+						km
+					{% endif %}
+				</span>
+				<p>{{ e.description }}</p>
+			</div>
+			{% if current_user.is_authenticated %}
+				<div class="evenement-actions">
+					<a href="{{ url_for('modifier', id=e.id) }}" class="btn">Modifier</a>
+					<form method="POST" action="{{ url_for('supprimer', id=e.id) }}">
+						<button type="submit" class="btn btn-danger">Supprimer</button>
+					</form>
+				</div>
+			{% endif %}
+		</div>
+	{% endfor %}
+
+	<div class="pagination">
+		{% if page > 1 %}
+			<a class="btn" href="{{ url_for('donnees', page=page-1, **base_params) }}">‹ Précédent</a>
+		{% endif %}
+		<form method="GET" action="{{ url_for('donnees') }}" class="pagination-inline">
+			{% for k, v in base_params.items() %}
+				<input type="hidden" name="{{ k }}" value="{{ v }}">
+			{% endfor %}
+			Page
+			<input type="number" name="page" min="1" max="{{ nb_pages }}" value="{{ page }}" class="input-page">
+			/
+			{{ nb_pages }}
+		</form>
+		{% if page < nb_pages %}
+			<a class="btn" href="{{ url_for('donnees', page=page+1, **base_params) }}">Suivant ›</a>
+		{% endif %}
+	</div>
+
+	<button class="scroll-top" id="scrollTop" title="Retour en haut">↑</button>
+{% endblock %}
+
+{% block extra_head %}
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
+	<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+	<script src="https://npmcdn.com/flatpickr/dist/l10n/fr.js"></script>
+	<style>
+		.accordeon summary {
+			cursor: pointer;
+			list-style: none;
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+		}
+		.accordeon summary::-webkit-details-marker {
+			display: none;
+		}
+		.accordeon-fleche {
+			transition: transform 0.2s;
+			color: var(--amber);
+		}
+		.accordeon[open] .accordeon-fleche {
+			transform: rotate(180deg);
+		}
+		.accordeon-contenu {
+			margin-top: 1rem;
+		}
+
+		.ligne-filtres {
+			display: flex;
+			gap: 1rem;
+			flex-wrap: wrap;
+			margin-bottom: 0.75rem;
+		}
+		.ligne-filtres label {
+			flex: 1;
+			min-width: 140px;
+			font-size: 0.85rem;
+		}
+		.ligne-boutons {
+			display: flex;
+			gap: 0.75rem;
+			margin-top: 0.5rem;
+		}
+
+		.pagination {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 1rem;
+			margin: 1.5rem 0;
+		}
+		.pagination-inline {
+			display: flex;
+			align-items: center;
+			gap: 0.4rem;
+			font-family: var(--font-mono);
+			color: var(--sage);
+			font-size: 0.9rem;
+		}
+		.input-page {
+			width: 55px;
+			text-align: center;
+			padding: 0.3rem;
+			margin: 0;
+			font-family: var(--font-mono);
+			color: var(--sage);
+			background: var(--bg);
+			border: 1px solid var(--border);
+			border-radius: 4px;
+		}
+
+		.flatpickr-calendar.dark {
+			background: var(--surface);
+			border: 1px solid var(--border);
+		}
+		.flatpickr-day.selected {
+			background: var(--amber) !important;
+			border-color: var(--amber) !important;
+		}
+	</style>
+{% endblock %}
+
+{% block extra_scripts %}
+	<script>
+		flatpickr("#dateDebut", {
+dateFormat: "Y-m-d",
+altInput: true,
+altFormat: "d/m/Y",
+locale: "fr"
+});
+flatpickr("#dateFin", {
+dateFormat: "Y-m-d",
+altInput: true,
+altFormat: "d/m/Y",
+locale: "fr"
+});{% if filtres_actuels.get('date_debut') or filtres_actuels.get('date_fin') or filtres_actuels.get('intensite_min') or filtres_actuels.get('intensite_max') or filtres_actuels.get('frp_min') or filtres_actuels.get('frp_max') or filtres_actuels.get('zone') or filtres_actuels.get('confidence') or filtres_actuels.get('daynight') %}document.getElementById('accordeonFiltre').open = true;{% endif %}document.querySelectorAll('.input-page').forEach(function (input) {
+input.addEventListener('keydown', function (e) {
+if (e.key === 'Enter') {
+e.preventDefault();
+this.form.submit();
+}
+});
+});
+
+document.getElementById('btnExport').addEventListener('click', function () {
+const params = new URLSearchParams(window.location.search);
+params.delete('page');
+params.delete('par_page');
+
+fetch('/api/compter?' + params.toString()).then(function (response) {
+return response.json();
+}).then(function (data) {
+const lien = document.createElement('a');
+lien.href = '/export?' + params.toString();
+lien.click();
+
+const messageDiv = document.getElementById('messageExport');
+let recap = data.nombre + ' détection' + (
+data.nombre !== 1 ? 's' : ''
+) + ' téléchargée' + (
+data.nombre !== 1 ? 's' : ''
+);
+messageDiv.textContent = recap;
+messageDiv.style.display = 'block';
+});
+});
+
+const boutonHaut = document.getElementById('scrollTop');
+window.addEventListener('scroll', function () {
+boutonHaut.classList.toggle('visible', window.scrollY > 400);
+});
+boutonHaut.addEventListener('click', function () {
+window.scrollTo({top: 0, behavior: 'smooth'});
+});
+	</script>
+{% endblock %}

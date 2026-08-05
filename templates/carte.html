@@ -1,0 +1,737 @@
+{% extends "base.html" %}
+
+{% block title %}Carte — Tracker thermique
+{% endblock %}
+
+{% block content %}
+	<button id="toggleBarre" class="btn-toggle-barre">Affichage &amp; filtres
+		<span class="chevron-toggle">▾</span>
+	</button>
+
+	<div class="carte-barre" id="carteBarre">
+		<div class="carte-barre-gauche">
+			<button id="jourPrecedent" class="btn-barre">◀</button>
+			<input type="text" id="dateChoisie" class="input-carte" readonly>
+			<button id="jourSuivant" class="btn-barre">▶</button>
+			<span class="data" id="plageDates"></span>
+			<span id="indicateurChargement" class="indicateur-chargement"></span>
+		</div>
+
+		<div class="carte-barre-centre">
+			<div class="groupe-filtre groupe-fond">
+				<label class="switch-fond">
+					<input type="radio" name="fond" value="plan">
+					Plan
+				</label>
+				<label class="switch-fond">
+					<input type="radio" name="fond" value="satellite" checked>
+					Satellite
+				</label>
+				<label class="switch-fond">
+					<input type="radio" name="fond" value="gibs">
+					Photo réelle
+				</label>
+			</div>
+			<div class="groupe-filtre groupe-couches">
+				<label class="switch-couche" title="Regroupe les détections proches en clusters numérotés">
+					<input type="checkbox" id="toggleClusters">
+					Groupés
+				</label>
+				<label class="switch-couche" title="Affiche chaque détection individuellement, sans regroupement">
+					<input type="checkbox" id="toggleDetail">
+					Détaillé
+				</label>
+				<label class="switch-couche" title="Densité cumulée : le rouge peut venir d'un gros foyer ou de nombreux petits foyers proches">
+					<input type="checkbox" id="toggleChaleur" checked>
+					Chaleur
+				</label>
+			</div>
+		</div>
+		<div class="carte-barre-droite">
+			<button id="btnReinitVue" class="btn-barre">Réinitialiser la vue</button>
+			<button id="btnReinitFiltres" class="btn-barre">Réinitialiser les filtres</button>
+			<button id="btnAide" class="btn-barre">Comprendre la carte</button>
+		</div>
+	</div>
+
+	<div class="barre-kpi">
+		<span class="kpi" id="kpiContainer">Chargement des statistiques...</span>
+	</div>
+
+	<div id="panneauAide" class="panneau-aide">
+		<button id="fermerAide" class="fermer-aide">✕</button>
+		<h2>Comprendre cette carte</h2>
+
+		<h3>Que représentent les points ?</h3>
+		<p>Chaque point est une
+			<strong>détection thermique</strong>
+			repérée par le capteur satellite VIIRS (NASA FIRMS) — une zone de chaleur anormale au sol. Ce n'est pas une confirmation qu'il s'agit d'un feu de forêt : ça peut aussi être une usine, une torchère de gaz, ou un brûlage agricole. Le satellite détecte la chaleur, pas la cause.</p>
+
+		<h3>Que veulent dire les couleurs ?</h3>
+		<ul>
+			<li>
+				<span class="badge-intensite badge-jaune"></span>
+				<strong>Jaune</strong>
+				— FRP inférieur à 8 MW (la majorité des détections)</li>
+			<li>
+				<span class="badge-intensite badge-orange"></span>
+				<strong>Orange</strong>
+				— FRP entre 8 et 20 MW</li>
+			<li>
+				<span class="badge-intensite badge-rouge"></span>
+				<strong>Rouge</strong>
+				— FRP supérieur à 20 MW (foyers les plus intenses)</li>
+		</ul>
+		<p>Le FRP (Fire Radiative Power) mesure la puissance radiative du foyer, en mégawatts — un meilleur indicateur d'intensité que la simple température.</p>
+		<p>Pour donner un ordre de grandeur : quelques MW correspond à un feu de faible ampleur (souvent un brûlage agricole ou une source industrielle) ; une dizaine de MW à un feu de forêt actif de taille modeste ; au-delà de 50-100 MW, on est généralement face à un incendie de forêt majeur en pleine propagation.</p>
+
+		<h3>Les trois vues disponibles</h3>
+		<p>
+			<strong>Points groupés</strong>
+			— regroupe les détections proches en clusters numérotés, pratique pour une vue d'ensemble sans surcharge visuelle.</p>
+		<p>
+			<strong>Tous les points (détaillé)</strong>
+			— chaque détection affichée individuellement.</p>
+		<p>
+			<strong>Carte de chaleur</strong>
+			— densité cumulée des détections. Une zone rouge peut représenter un seul feu intense
+			<em>ou</em>
+			de nombreux petits foyers proches (comme le brûlage agricole, fréquent en Afrique) — elle ne distingue pas les deux cas.</p>
+
+		<h3>Photo réelle (satellite)</h3>
+		<p>Une vraie image satellite en couleurs naturelles (NASA GIBS), sur laquelle la fumée est parfois visible directement. Cette couche a des limites connues : résolution maximale limitée (zoom 9), et parfois des zones sans image (le satellite ne passe pas partout chaque jour).</p>
+
+		<h3>Précision de la position</h3>
+		<p>Chaque détection correspond à un pixel satellite d'environ 375 mètres de côté — la position affichée est donc approximative, pas un point exact au mètre près.</p>
+
+		<h3>La ligne de statistiques</h3>
+		<p>Sous la barre de contrôle : le nombre de détections du jour (incomplet tant que la journée n'est pas terminée), la tendance calculée entre hier et avant-hier (deux jours pleinement couverts), le pic d'intensité radiative (FRP) du jour, et les régions du monde actuellement actives.</p>
+		<p>Les régions de référence sont : Europe, Amérique du Nord, Amérique du Sud, Afrique, Asie, Océanie — découpées par grandes zones géographiques approximatives, pas par frontières précises.</p>
+	</div>
+
+	<div id="carte"></div>
+
+	<button class="scroll-top" id="scrollTop" title="Retour en haut">↑</button>
+{% endblock %}
+{% block extra_head %}
+	<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+	<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+	<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+	<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+	<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+	<link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css"/>
+	<script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+	<script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
+	<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+	<script src="https://npmcdn.com/flatpickr/dist/l10n/fr.js"></script>
+	<style>
+		/* Cette page ignore la contrainte de largeur/padding du contenu principal */
+		.main {
+			max-width: none;
+			padding: 0;
+		}
+
+		#carte {
+			height: calc(100vh - 160px);
+			width: 100%;
+			max-width: 100%;
+		}
+
+		.flatpickr-calendar.dark {
+			background: var(--surface);
+			border: 1px solid var(--border);
+		}
+
+		.carte-barre {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			flex-wrap: wrap;
+			gap: 0.75rem;
+			padding: 0.5rem 1.5rem;
+			background: var(--surface);
+			border-bottom: 1px solid var(--border);
+			font-size: 0.85rem;
+		}
+
+		.carte-barre-gauche,
+		.carte-barre-droite,
+		.carte-barre-centre {
+			display: flex;
+			align-items: center;
+			gap: 0.6rem;
+			flex-wrap: wrap;
+			height: 34px;
+		}
+
+		.carte-barre-centre {
+			color: var(--text-muted);
+		}
+
+		.btn-barre {
+			height: 34px;
+			padding: 0 0.9rem;
+			font-family: var(--font-body);
+			font-weight: 600;
+			font-size: 0.85rem;
+			border-radius: 6px;
+			border: 1px solid var(--border);
+			background: var(--surface-hover);
+			color: var(--text);
+			cursor: pointer;
+			display: flex;
+			align-items: center;
+			box-sizing: border-box;
+		}
+		.btn-barre:hover {
+			border-color: var(--amber);
+			color: var(--amber);
+		}
+
+		.input-carte {
+			height: 34px;
+			width: auto;
+			margin: 0;
+			padding: 0 0.6rem;
+			font-size: 0.85rem;
+			box-sizing: border-box;
+			display: flex;
+			align-items: center;
+		}
+
+		.groupe-filtre {
+			height: 34px;
+			display: flex;
+			align-items: center;
+			gap: 0.6rem;
+			padding: 0 0.7rem;
+			border-radius: 6px;
+			box-sizing: border-box;
+		}
+		.groupe-fond {
+			background: rgba(242, 166, 90, 0.08);
+			border: 1px solid rgba(242, 166, 90, 0.25);
+		}
+		.groupe-couches {
+			background: rgba(127, 169, 155, 0.08);
+			border: 1px solid rgba(127, 169, 155, 0.25);
+		}
+
+		.switch-fond,
+		.switch-couche {
+			display: flex;
+			align-items: center;
+			gap: 0.3rem;
+			cursor: pointer;
+			white-space: nowrap;
+			height: 100%;
+			margin-bottom: 0;
+			margin-top: 0;
+		}
+		.switch-fond input,
+		.switch-couche input {
+			margin: 0;
+			width: 14px;
+			height: 14px;
+			accent-color: var(--amber);
+		}
+
+		#plageDates {
+			color: var(--sage);
+			white-space: nowrap;
+			display: flex;
+			align-items: center;
+		}
+
+		.panneau-aide {
+			display: none;
+			position: absolute;
+			top: 70px;
+			right: 1.5rem;
+			width: 340px;
+			max-height: 75vh;
+			overflow-y: auto;
+			background: var(--surface);
+			border: 1px solid var(--border);
+			border-radius: 8px;
+			padding: 1.25rem;
+			z-index: 10000;
+			box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+		}
+		.panneau-aide.visible {
+			display: block;
+		}
+		.panneau-aide h3 {
+			font-size: 1rem;
+			margin-top: 1rem;
+			margin-bottom: 0.4rem;
+			color: var(--amber);
+		}
+		.panneau-aide p,
+		.panneau-aide li {
+			font-size: 0.85rem;
+			color: var(--text-muted);
+			line-height: 1.5;
+		}
+		.panneau-aide ul {
+			padding-left: 1.1rem;
+			margin: 0.5rem 0;
+		}
+		.fermer-aide {
+			position: absolute;
+			top: 0.75rem;
+			right: 0.75rem;
+			background: none;
+			border: none;
+			color: var(--text-muted);
+			font-size: 1.1rem;
+			cursor: pointer;
+		}
+		.fermer-aide:hover {
+			color: var(--amber);
+		}
+
+		.indicateur-chargement {
+			width: 14px;
+			height: 14px;
+			border: 2px solid var(--border);
+			border-top-color: var(--amber);
+			border-radius: 50%;
+			display: none;
+			animation: tourner 0.7s linear infinite;
+		}
+		.indicateur-chargement.actif {
+			display: inline-block;
+		}
+
+		.barre-kpi {
+			padding: 0.4rem 1.5rem;
+			background: var(--bg);
+			border-bottom: 1px solid var(--border);
+			display: flex;
+			justify-content: center;
+		}
+		.kpi {
+			font-family: var(--font-mono);
+			font-size: 0.8rem;
+			color: var(--text-muted);
+			white-space: nowrap;
+		}
+		.kpi strong {
+			color: var(--sage);
+		}
+		.kpi .tendance-hausse {
+			color: var(--ember);
+		}
+		.kpi .tendance-baisse {
+			color: var(--sage);
+		}
+
+		.icone-pic {
+			width: 4px;
+			height: 4px;
+			position: relative;
+		}
+		.icone-pic::before {
+			content: '';
+			position: absolute;
+			top: 50%;
+			left: 50%;
+			width: 6px;
+			height: 6px;
+			margin: -2px 0 0 -2px;
+			border-radius: 50%;
+			box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.9);
+			animation: pulsation 1.5s infinite;
+		}
+		@keyframes pulsation {
+			0% {
+				box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.9);
+			}
+			70% {
+				box-shadow: 0 0 0 18px rgba(0, 0, 0, 0);
+			}
+			100% {
+				box-shadow: 0 0 0 0 rgba(0, 0, 0, 0);
+			}
+		}
+
+		@media(max-width: 700px) {
+			.panneau-aide {
+				left: 1rem;
+				right: 1rem;
+				width: auto;
+				top: 60px;
+			}
+		}
+
+		@media(max-width: 700px) {
+			.carte-barre {
+				flex-direction: column;
+				align-items: stretch;
+				height: auto;
+			}
+			.carte-barre-gauche,
+			.carte-barre-centre,
+			.carte-barre-droite {
+				height: auto;
+				justify-content: center;
+			}
+			.groupe-filtre {
+				height: auto;
+				flex-wrap: wrap;
+				padding: 0.4rem 0.7rem;
+			}
+			#carte {
+				height: calc(100vh - 260px);
+			}
+		}
+
+		.btn-toggle-barre {
+			display: none;
+			width: 100%;
+			padding: 0.7rem;
+			background: var(--surface);
+			border: none;
+			border-bottom: 1px solid var(--border);
+			color: var(--text);
+			font-family: var(--font-body);
+			font-weight: 600;
+			font-size: 0.9rem;
+			cursor: pointer;
+			text-align: center;
+			align-items: center;
+			justify-content: center;
+			gap: 0.4rem;
+		}
+		.chevron-toggle {
+			color: var(--amber);
+			transition: transform 0.2s;
+			display: inline-block;
+		}
+		.carte-barre.ouverte ~ .btn-toggle-barre .chevron-toggle,
+		#toggleBarre.actif .chevron-toggle {
+			transform: rotate(180deg);
+		}
+
+		@media(max-width: 700px) {
+			.btn-toggle-barre {
+				display: block;
+			}
+			.carte-barre {
+				flex-direction: column;
+				align-items: stretch;
+				height: auto;
+				display: none;
+			}
+			.carte-barre.ouverte {
+				display: flex;
+			}
+			.carte-barre-gauche,
+			.carte-barre-centre,
+			.carte-barre-droite {
+				height: auto;
+				justify-content: center;
+				flex-wrap: wrap;
+			}
+			.groupe-filtre {
+				height: auto;
+				flex-wrap: wrap;
+				padding: 0.4rem 0.7rem;
+			}
+			.input-carte {
+				min-width: 140px;
+			}
+			#carte {
+				height: calc(100vh - 110px);
+			}
+		}
+	</style>
+{% endblock %}
+{% block extra_scripts %}
+	<script>
+		const carte = L.map('carte', {
+minZoom: 2.5,
+zoomSnap: 0.5,
+maxBounds: [
+[
+-90, -180
+],
+[
+90, 180
+]
+],
+maxBoundsViscosity: 1.0,
+preferCanvas: true
+}).setView([
+20, 10
+], 2.5);
+
+const fondPlan = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {attribution: '&copy; OpenStreetMap contributors &copy; CARTO'});
+const fondSatellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {attribution: 'Tiles &copy; Esri'});
+fondSatellite.addTo(carte);
+const coucheSatelliteVrai = L.tileLayer('https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/{time}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg', {
+time: new Date().toISOString().split('T')[0],
+attribution: 'Imagery courtesy of NASA/GIBS',
+maxZoom: 9
+});
+
+const groupeClusters = L.markerClusterGroup({maxClusterRadius: 30});
+const groupeSansCluster = L.layerGroup();
+let markerPic = null;
+const coucheChaleur = L.heatLayer([], {
+radius: 8,
+blur: 6,
+max: 15,
+minOpacity: 0.4,
+gradient: {
+0.15: 'yellow',
+0.35: '#ffcc00',
+0.55: 'orange',
+0.75: '#ff5500',
+1.0: 'red'
+}
+});
+
+carte.addLayer(coucheChaleur);
+
+document.querySelectorAll('input[name="fond"]').forEach(function (radio) {
+radio.addEventListener('change', function () {
+carte.removeLayer(fondPlan);
+carte.removeLayer(fondSatellite);
+carte.removeLayer(coucheSatelliteVrai);
+if (this.value === 'plan') 
+carte.addLayer(fondPlan);
+ else if (this.value === 'satellite') 
+carte.addLayer(fondSatellite);
+ else if (this.value === 'gibs') 
+carte.addLayer(coucheSatelliteVrai);
+
+
+
+});
+});
+
+document.getElementById('toggleClusters').addEventListener('change', function () {
+if (this.checked) {
+carte.addLayer(groupeClusters);
+} else {
+carte.removeLayer(groupeClusters);
+}
+});
+document.getElementById('toggleDetail').addEventListener('change', function () {
+if (this.checked) {
+carte.addLayer(groupeSansCluster);
+} else {
+carte.removeLayer(groupeSansCluster);
+}
+});
+document.getElementById('toggleChaleur').addEventListener('change', function () {
+if (this.checked) {
+carte.addLayer(coucheChaleur);
+} else {
+carte.removeLayer(coucheChaleur);
+}
+});
+
+L.Control.geocoder({defaultMarkGeocode: true}).addTo(carte);
+
+function calculerRayon() {
+return 2;
+}
+
+function calculerParametresChaleur() {
+const zoom = carte.getZoom();
+const radius = Math.max(6, zoom * 3);
+const blur = Math.max(4, zoom * 2.2);
+return {radius: radius, blur: blur};
+}
+
+function chargerEvenements(date) {
+document.getElementById('indicateurChargement').classList.add('actif');
+groupeClusters.clearLayers();
+groupeSansCluster.clearLayers();
+coucheSatelliteVrai.setUrl('https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/' + date + '/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg');
+
+fetch('/api/evenements?date=' + date).then(function (response) {
+return response.json();
+}).then(function (data) {
+const grille = {};
+
+data.evenements.forEach(function (e) {
+const couleur = e.frp >= 20 ? 'red' : e.frp >= 8 ? 'orange' : 'yellow';
+const stylePoint = {
+radius: calculerRayon(),
+color: couleur,
+fillColor: couleur,
+fillOpacity: 0.7
+};
+
+const point1 = L.circleMarker([
+e.latitude, e.longitude
+], stylePoint);
+point1.on('click', function () {
+point1.bindPopup('<strong>' + e.date + '</strong><br>' + e.description).openPopup();
+});
+
+const point2 = L.circleMarker([
+e.latitude, e.longitude
+], stylePoint);
+point2.on('click', function () {
+point2.bindPopup('<strong>' + e.date + '</strong><br>' + e.description).openPopup();
+});
+
+groupeClusters.addLayer(point1);
+groupeSansCluster.addLayer(point2);
+
+const cleGrille = Math.round(e.latitude * 4) / 4 + ',' + Math.round(e.longitude * 4) / 4;
+if (! grille[cleGrille]) {
+grille[cleGrille] = {
+total: 0,
+nb: 0,
+lat: e.latitude,
+lon: e.longitude
+};
+}
+grille[cleGrille].total += e.frp;
+grille[cleGrille].nb += 1;
+});
+
+const pointsChaleur = Object.values(grille).map(function (g) {
+return [
+g.lat,
+g.lon,
+g.total / g.nb
+];
+});
+
+if (markerPic) {
+carte.removeLayer(markerPic);
+markerPic = null;
+}
+
+if (data.evenements.length > 0) {
+const evenementPic = data.evenements.reduce(function (max, e) {
+return(e.frp > (max.frp || 0)) ? e : max;
+}, {});
+
+if (evenementPic.frp) {
+const icone = L.divIcon({
+className: 'icone-pic',
+iconSize: [
+6, 6
+],
+iconAnchor: [3, 3]
+});
+markerPic = L.marker([
+evenementPic.latitude, evenementPic.longitude
+], {icon: icone}).bindPopup('<strong>🔥 Pic du jour</strong><br>' + evenementPic.date + '<br>' + evenementPic.description).addTo(carte);
+}
+}
+
+coucheChaleur.setLatLngs(pointsChaleur);
+document.getElementById('indicateurChargement').classList.remove('actif');
+}).catch(function (erreur) {
+console.error('Erreur de chargement:', erreur);
+document.getElementById('indicateurChargement').classList.remove('actif');
+});
+}
+
+const inputDate = document.getElementById('dateChoisie');
+const dateDuJour = new Date();
+const dateDuJourStr = dateDuJour.toISOString().split('T')[0];
+inputDate.value = dateDuJourStr;
+const fp = flatpickr(inputDate, {
+dateFormat: "Y-m-d",
+altInput: true,
+altFormat: "d/m/Y",
+locale: "fr",
+onChange: function (selectedDates, dateStr) {
+chargerEvenements(dateStr);
+}
+});
+
+function decalerJour(delta) {
+const d = new Date(inputDate.value);
+d.setDate(d.getDate() + delta);
+const nouvelleDate = d.toISOString().split('T')[0];
+fp.setDate(nouvelleDate, true);
+}
+
+document.getElementById('jourPrecedent').addEventListener('click', function () {
+decalerJour(-1);
+});
+document.getElementById('jourSuivant').addEventListener('click', function () {
+decalerJour(1);
+});
+
+document.getElementById('btnReinitVue').addEventListener('click', function () {
+carte.setView([
+20, 10
+], 2.5);
+});
+
+document.getElementById('btnReinitFiltres').addEventListener('click', function () {
+fp.setDate(dateDuJourStr, true);
+});
+
+chargerEvenements(inputDate.value);
+
+const boutonHaut = document.getElementById('scrollTop');
+window.addEventListener('scroll', function () {
+boutonHaut.classList.toggle('visible', window.scrollY > 400);
+});
+boutonHaut.addEventListener('click', function () {
+window.scrollTo({top: 0, behavior: 'smooth'});
+});
+
+document.getElementById('toggleBarre').addEventListener('click', function () {
+document.getElementById('carteBarre').classList.toggle('ouverte');
+this.classList.toggle('actif');
+});
+
+document.getElementById('btnAide').addEventListener('click', function () {
+document.getElementById('panneauAide').classList.toggle('visible');
+});
+document.getElementById('fermerAide').addEventListener('click', function () {
+document.getElementById('panneauAide').classList.remove('visible');
+});
+
+function chargerKPI() {
+fetch('/api/kpi').then(function (response) {
+return response.json();
+}).then(function (data) {
+let html = `<span title="Nombre de détections thermiques enregistrées aujourd'hui — donnée incomplète, le satellite n'a pas encore effectué tous ses passages"><strong>${
+data.total_jour
+}</strong> détections aujourd'hui (partiel)</span>`;
+
+if (data.evolution_pct !== null) {
+const classe = data.evolution_pct >= 0 ? 'tendance-hausse' : 'tendance-baisse';
+const signe = data.evolution_pct >= 0 ? '+' : '';
+html += ` · <span class="${classe}" title="Comparaison entre hier et avant-hier, deux journées complètes — plus fiable que d'inclure aujourd'hui">${signe}${
+data.evolution_pct
+}% (tendance)</span>`;
+}
+
+if (data.frp_max_jour) {
+html += ` · <span title="Puissance radiative (FRP) la plus élevée détectée aujourd'hui. À titre de repère : quelques MW = feu modeste, 50+ MW = incendie majeur">pic d'intensité : ${
+data.frp_max_jour
+} MW</span>`;
+}
+
+const nomsRegions = data.regions_actives_noms.join(', ') || 'aucune';
+html += ` · <span title="Régions avec au moins une détection aujourd'hui : ${nomsRegions}">${
+data.regions_actives
+} région(s) active(s)</span>`;
+
+document.getElementById('kpiContainer').innerHTML = html;
+}).catch(function () {
+document.getElementById('kpiContainer').textContent = 'Statistiques indisponibles';
+});
+}
+
+chargerKPI();
+	</script>
+{% endblock %}

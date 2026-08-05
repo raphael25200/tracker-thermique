@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Ajouter un événement — Tracker thermique
+{% endblock %}
+
+{% block content %}
+	<h1>Ajouter un événement</h1>
+
+	<div class="card" style="max-width: 500px;">
+		<form method="POST">
+			<label>
+				Date
+				<input type="date" name="date" required>
+			</label>
+			<label>
+				Zone
+				<input type="text" name="zone" required>
+			</label>
+			<label>
+				Type
+				<input type="text" name="type_evenement" required>
+			</label>
+			<label>
+				Description
+				<textarea name="description" rows="4"></textarea>
+			</label>
+			<button type="submit" class="btn btn-primary">Enregistrer</button>
+			<a href="{{ url_for('donnees') }}" class="btn">Annuler</a>
+		</form>
+	</div>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Connexion — Tracker thermique
+{% endblock %}
+
+{% block content %}
+	<h1>Connexion</h1>
+
+	<div class="card" style="max-width: 400px;">
+		{% if erreur %}
+			<div class="message message-erreur">{{ erreur }}</div>
+		{% endif %}
+
+		<form method="POST">
+			<label>
+				Nom d'utilisateur
+				<input type="text" name="username" required>
+			</label>
+			<label>
+				Mot de passe
+				<input type="password" name="password" required>
+			</label>
+			<button type="submit" class="btn btn-primary">Se connecter</button>
+		</form>
+	</div>
+{% endblock %}
