@@ -3,6 +3,7 @@ instance/
 __pycache__/
 *.pyc
 .env
+verifier_index.py
 verifier_dates_brutes.py
 verifier_dates.py
 verifier_historique.py
