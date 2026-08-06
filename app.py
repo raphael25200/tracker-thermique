@@ -18,6 +18,19 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///tracker.db'
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 db.init_app(app)
 
+from flask_wtf.csrf import CSRFProtect
+
+csrf = CSRFProtect(app)
+
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=[]
+)
+
 derniere_maj = {"date": None, "heure": None}
 
 login_manager = LoginManager()
@@ -48,6 +61,7 @@ def load_user(user_id):
     return db.session.get(User, int(user_id))
 
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit("5 per minute")
 def login():
     if request.method == 'POST':
         user = User.query.filter_by(username=request.form['username']).first()
@@ -82,7 +96,7 @@ def donnees():
     page = request.args.get('page', default=1, type=int)
     pixel_max = request.args.get('pixel_max', type=float)
 
-    query = Evenement.query.filter(Evenement.latitude.isnot(None))
+    query = Evenement.query
 
     if date_debut:
         query = query.filter(Evenement.date >= datetime.strptime(date_debut, '%Y-%m-%d').date())
@@ -151,7 +165,7 @@ def nouveau():
         )
         db.session.add(nouvel_evenement)
         db.session.commit()
-        return redirect(url_for('home'))
+        return redirect(url_for('donnees'))
     return render_template('nouveau.html')
 
 @app.route('/evenement/<int:id>/supprimer', methods=['POST'])
@@ -160,7 +174,7 @@ def supprimer(id):
     evenement = Evenement.query.get_or_404(id)
     db.session.delete(evenement)
     db.session.commit()
-    return redirect(url_for('home'))
+    return redirect(url_for('donnees'))
 
 @app.route('/evenement/<int:id>/modifier', methods=['GET', 'POST'])
 @login_required
@@ -172,7 +186,7 @@ def modifier(id):
         evenement.type_evenement = request.form['type_evenement']
         evenement.description = request.form['description']
         db.session.commit()
-        return redirect(url_for('home'))
+        return redirect(url_for('donnees'))
     return render_template('modifier.html', evenement=evenement)
 
 @app.route('/importer', methods=['GET', 'POST'])
@@ -389,5 +403,5 @@ def api_kpi():
     }
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=os.getenv('FLASK_DEBUG', 'False') == 'True')
 

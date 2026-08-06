@@ -191,6 +191,7 @@
 				<div class="evenement-actions">
 					<a href="{{ url_for('modifier', id=e.id) }}" class="btn">Modifier</a>
 					<form method="POST" action="{{ url_for('supprimer', id=e.id) }}">
+						<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 						<button type="submit" class="btn btn-danger">Supprimer</button>
 					</form>
 				</div>

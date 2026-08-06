@@ -21,6 +21,7 @@
 		{% endif %}
 
 		<form method="POST" id="formImport">
+			<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 			<button type="submit" class="btn btn-primary" id="btnImport">Lancer l'import</button>
 		</form>
 	</div>
