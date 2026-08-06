@@ -6,7 +6,7 @@
 
 ## English summary
 
-A Flask web application that tracks satellite thermal detections worldwide, using NASA FIRMS (VIIRS) open data. Features an interactive map (clusters, heatmap, true-color satellite imagery via NASA GIBS), a filterable scientific data page with CSV export, and daily/historical import tools. Built as a learning project to move from PHP/Symfony toward Python/Flask, developed with heavy AI-assisted pair-programming (Claude) — see the *Approche de développement* section below for an honest account of what was autonomous vs. assisted. **Important:** this tool detects thermal anomalies, not confirmed wildfires — see *Limites connues*.
+A Flask web application that tracks satellite thermal detections worldwide, using NASA FIRMS (VIIRS) open data. Features an interactive map (clusters, heatmap, true-color satellite imagery via NASA GIBS), a filterable scientific data page with CSV export, and daily/historical import tools. Built as a learning project to move from PHP/Symfony toward Python/Flask, developed with heavy AI-assisted pair-programming (Claude) — see the _Approche de développement_ section below for an honest account of what was autonomous vs. assisted. **Important:** this tool detects thermal anomalies, not confirmed wildfires — see _Limites connues_.
 
 ---
 
@@ -14,11 +14,12 @@ A Flask web application that tracks satellite thermal detections worldwide, usin
 
 Application web Flask qui centralise et visualise les détections thermiques repérées par satellite dans le monde entier, à partir des données ouvertes **NASA FIRMS** (capteur VIIRS). Le projet propose une carte interactive riche, une page de données scientifiques filtrables avec export CSV, et des outils d'import (quotidien et historique).
 
-Ce projet est né d'un test d'apprentissage Python/Flask (dans la continuité d'un parcours PHP/Symfony) et a progressivement grandi en un vrai outil complet — voir la section *Historique du projet* pour le contexte.
+Ce projet est né d'un test d'apprentissage Python/Flask (dans la continuité d'un parcours PHP/Symfony) et a progressivement grandi en un vrai outil complet — voir la section _Historique du projet_ pour le contexte.
 
 ## Fonctionnalités
 
 **Carte interactive** (`/`)
+
 - Trois vues : points groupés (clusters), points détaillés, carte de chaleur (densité cumulée)
 - Fonds de carte : plan, imagerie satellite (Esri), photo satellite réelle en couleurs naturelles (NASA GIBS)
 - Navigation jour par jour avec calendrier, recherche de lieu
@@ -26,10 +27,12 @@ Ce projet est né d'un test d'apprentissage Python/Flask (dans la continuité d'
 - Panneau d'aide intégré expliquant la lecture des données
 
 **Page données** (`/donnees`)
+
 - Filtres scientifiques complets : période, température, FRP (puissance radiative), confiance de détection, jour/nuit, région
 - Pagination, export CSV de la sélection filtrée avec toutes les colonnes (position, satellite, dimensions du pixel, etc.)
 
 **Administration** (connexion requise)
+
 - Import manuel depuis FIRMS (zone mondiale, jusqu'à 5 jours de couverture)
 - Script d'import historique par tranches, avec bascule automatique entre données archivées (SP) et temps réel (NRT)
 - CRUD complet sur les événements
@@ -44,16 +47,30 @@ Ce projet est né d'un test d'apprentissage Python/Flask (dans la continuité d'
 ## Limites connues (important)
 
 Ce tracker affiche des **détections thermiques**, pas des incendies confirmés. Une détection peut correspondre à :
+
 - un feu de forêt ou de végétation
 - une installation industrielle, une torchère de gaz
 - un brûlage agricole
 - plus rarement, un faux positif (réflexion solaire, etc.)
 
 Autres limites à connaître :
+
 - **Résolution variable** : chaque détection correspond à un pixel satellite d'environ 375 m, mais sa taille réelle varie selon la position dans le passage du satellite (effet "bowtie")
 - **Couverture temporelle partielle** : le satellite ne repasse que 1 à 2 fois par jour au-dessus d'un point donné — un import ponctuel peut manquer des événements
 - **Carte de chaleur** : une zone rouge peut représenter un seul foyer intense ou de nombreux petits foyers proches (ex. brûlage agricole en Afrique) — la densité cumulée ne distingue pas les deux cas
 - **Photo satellite réelle (GIBS)** : résolution limitée à un niveau de zoom modéré, et parfois des zones sans image (le satellite ne couvre pas systématiquement toute la planète chaque jour)
+
+## Sécurité
+
+- Authentification requise pour toute action d'administration (import, ajout, modification, suppression)
+- Protection CSRF sur tous les formulaires (Flask-WTF)
+- Limitation des tentatives de connexion (5 par minute et par IP)
+- Mode debug désactivé par défaut, activable uniquement via variable d'environnement (`FLASK_DEBUG`)
+- Clés et secrets exclusivement en variables d'environnement, jamais versionnés
+
+## Statut et déploiement
+
+Projet actuellement en développement local (SQLite), avec migration en cours vers un hébergement en ligne (MySQL, hébergement mutualisé OVH). Le script `migrer_vers_mysql.py` gère le transfert des données par lots.
 
 ## Installation
 
@@ -66,8 +83,11 @@ pip install -r requirements.txt
 ```
 
 Copier `.env.example` en `.env` et renseigner :
+
 - `FIRMS_API_KEY` — clé gratuite sur [firms.modaps.eosdis.nasa.gov/api](https://firms.modaps.eosdis.nasa.gov/api/)
 - `SECRET_KEY` — générer avec `python -c "import secrets; print(secrets.token_hex(32))"`
+- `DATABASE_URL` — optionnel, URL MySQL pour la production (par défaut : SQLite en local)
+- `FLASK_DEBUG` — optionnel, `True` en développement uniquement
 
 ```bash
 python app.py
