@@ -9,3 +9,5 @@ scripts/verifier_dates_brutes.py
 scripts/verifier_dates.py
 scripts/verifier_historique.py
 scripts/verifier_index.py
+app.cgi
+.htaccess
