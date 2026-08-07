@@ -4,10 +4,11 @@ Utilise VIIRS_NOAA20_SP pour les dates anciennes (donnees archivees et validees)
 et VIIRS_NOAA20_NRT pour les dates recentes (le SP n'est pas encore publie).
 A lancer depuis le terminal : python import_historique.py
 """
-
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 import time
 import pandas as pd
-import os
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 

@@ -2,8 +2,16 @@ import csv
 import io
 import os
 import urllib.request
+import socket
 from dotenv import load_dotenv
 from datetime import datetime
+
+# Force IPv4 uniquement
+socket.setdefaulttimeout(60)
+_getaddrinfo_original = socket.getaddrinfo
+def _getaddrinfo_ipv4(*args, **kwargs):
+    return [addr for addr in _getaddrinfo_original(*args, **kwargs) if addr[0] == socket.AF_INET]
+socket.getaddrinfo = _getaddrinfo_ipv4
 
 load_dotenv()
 

@@ -2,7 +2,9 @@
 Ajoute des index sur la base existante, sans supprimer les données.
 A lancer une seule fois : python ajouter_index.py
 """
-
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from app import app, db
 from sqlalchemy import text
 

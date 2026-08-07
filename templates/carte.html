@@ -577,14 +577,16 @@ const point1 = L.circleMarker([
 e.latitude, e.longitude
 ], stylePoint);
 point1.on('click', function () {
-point1.bindPopup('<strong>' + e.date + '</strong><br>' + e.description).openPopup();
+const contenu = '<strong>' + e.date + '</strong><br>' + e.description + '<br><br>Coordonnees : ' + e.latitude.toFixed(4) + ', ' + e.longitude.toFixed(4) + '<br><a href="https://www.google.com/maps?q=' + e.latitude + ',' + e.longitude + '" target="_blank">Voir sur Google Maps</a>';
+point1.bindPopup(contenu).openPopup();
 });
 
 const point2 = L.circleMarker([
 e.latitude, e.longitude
 ], stylePoint);
 point2.on('click', function () {
-point2.bindPopup('<strong>' + e.date + '</strong><br>' + e.description).openPopup();
+const contenu = '<strong>' + e.date + '</strong><br>' + e.description + '<br><br>Coordonnees : ' + e.latitude.toFixed(4) + ', ' + e.longitude.toFixed(4) + '<br><a href="https://www.google.com/maps?q=' + e.latitude + ',' + e.longitude + '" target="_blank">Voir sur Google Maps</a>';
+point2.bindPopup(contenu).openPopup();
 });
 
 groupeClusters.addLayer(point1);
@@ -625,13 +627,14 @@ if (evenementPic.frp) {
 const icone = L.divIcon({
 className: 'icone-pic',
 iconSize: [
-6, 6
+10, 10
 ],
-iconAnchor: [3, 3]
+iconAnchor: [5, 5]
 });
+const contenuPic = '<strong>🔥 Pic du jour</strong><br>' + evenementPic.date + '<br>' + evenementPic.description + '<br><br>Coordonnees : ' + evenementPic.latitude.toFixed(4) + ', ' + evenementPic.longitude.toFixed(4) + '<br><a href="https://www.google.com/maps?q=' + evenementPic.latitude + ',' + evenementPic.longitude + '" target="_blank">Voir sur Google Maps</a>';
 markerPic = L.marker([
 evenementPic.latitude, evenementPic.longitude
-], {icon: icone}).bindPopup('<strong>🔥 Pic du jour</strong><br>' + evenementPic.date + '<br>' + evenementPic.description).addTo(carte);
+], {icon: icone}).bindPopup(contenuPic).addTo(carte);
 }
 }
 
@@ -683,7 +686,7 @@ fp.setDate(dateDuJourStr, true);
 
 setTimeout(function () {
 carte.invalidateSize();
-}, 100);
+}, 200);
 
 window.addEventListener('resize', function () {
 carte.invalidateSize();

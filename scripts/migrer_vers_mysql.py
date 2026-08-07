@@ -3,8 +3,9 @@ Migre toutes les donnees de la base SQLite locale vers la base MySQL (OVH).
 A lancer une seule fois, apres avoir verifie que DATABASE_URL (MySQL) fonctionne.
 Usage : python migrer_vers_mysql.py
 """
-
+import sys
 import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
