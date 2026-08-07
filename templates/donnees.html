@@ -304,7 +304,10 @@
 
 {% block extra_scripts %}
 	<script>
-		flatpickr("#dateDebut", {
+		const URL_API_COMPTER = "{{ url_for('api_compter') }}";
+const URL_EXPORT = "{{ url_for('export_csv') }}";
+
+flatpickr("#dateDebut", {
 dateFormat: "Y-m-d",
 altInput: true,
 altFormat: "d/m/Y",
@@ -329,20 +332,24 @@ const params = new URLSearchParams(window.location.search);
 params.delete('page');
 params.delete('par_page');
 
-fetch('/api/compter?' + params.toString()).then(function (response) {
+fetch(URL_API_COMPTER + '?' + params.toString()).then(function (response) {
 return response.json();
 }).then(function (data) {
+const messageDiv = document.getElementById('messageExport');
+
+if (data.nombre > 50000) {
+messageDiv.className = 'message message-erreur';
+messageDiv.textContent = 'Trop de resultats (' + data.nombre + '). Affinez vos filtres pour rester sous 50000 detections.';
+messageDiv.style.display = 'block';
+return;
+}
+
 const lien = document.createElement('a');
-lien.href = '/export?' + params.toString();
+lien.href = URL_EXPORT + '?' + params.toString();
 lien.click();
 
-const messageDiv = document.getElementById('messageExport');
-let recap = data.nombre + ' détection' + (
-data.nombre !== 1 ? 's' : ''
-) + ' téléchargée' + (
-data.nombre !== 1 ? 's' : ''
-);
-messageDiv.textContent = recap;
+messageDiv.className = 'message message-succes';
+messageDiv.textContent = 'Preparation du telechargement de ' + data.nombre + ' detection(s)... Le fichier peut prendre un moment a se generer.';
 messageDiv.style.display = 'block';
 });
 });

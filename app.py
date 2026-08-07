@@ -275,6 +275,9 @@ def api_evenements():
         })
 
     return {"evenements": data}
+
+LIMITE_EXPORT = 50000
+
 @app.route('/export')
 def export_csv():
     date_debut = request.args.get('date_debut')
@@ -310,6 +313,10 @@ def export_csv():
         query = query.filter(Evenement.daynight == daynight)
     if pixel_max:
         query = query.filter(Evenement.scan <= pixel_max, Evenement.track <= pixel_max)
+
+    nb_resultats = query.count()
+    if nb_resultats > LIMITE_EXPORT:
+        return {"erreur": f"Trop de résultats ({nb_resultats}). Affinez vos filtres pour rester sous {LIMITE_EXPORT} détections."}, 400
 
     evenements = query.all()
 
@@ -373,29 +380,34 @@ def api_compter():
 
 @app.route('/api/kpi')
 def api_kpi():
-    aujourd_hui = datetime.now().date()
-    hier = aujourd_hui - timedelta(days=1)
-    avant_hier = aujourd_hui - timedelta(days=2)
+    date_param = request.args.get('date')
+    if date_param:
+        jour_ref = datetime.strptime(date_param, '%Y-%m-%d').date()
+    else:
+        jour_ref = datetime.now().date()
 
-    total_jour = Evenement.query.filter(Evenement.date == aujourd_hui).count()
-    total_hier = Evenement.query.filter(Evenement.date == hier).count()
-    total_avant_hier = Evenement.query.filter(Evenement.date == avant_hier).count()
+    veille = jour_ref - timedelta(days=1)
+    est_aujourdhui = (jour_ref == datetime.now().date())
 
-    frp_max_jour = db.session.query(func.max(Evenement.frp)).filter(Evenement.date == aujourd_hui).scalar()
+    total_jour = Evenement.query.filter(Evenement.date == jour_ref).count()
+    total_veille = Evenement.query.filter(Evenement.date == veille).count()
+
+    frp_max_jour = db.session.query(func.max(Evenement.frp)).filter(Evenement.date == jour_ref).scalar()
 
     regions_actives_query = db.session.query(Evenement.region).filter(
-        Evenement.date == aujourd_hui,
+        Evenement.date == jour_ref,
         Evenement.region.isnot(None)
     ).distinct().all()
     regions_actives_noms = [REGIONS.get(r[0], r[0]) for r in regions_actives_query if r[0] != 'autre']
 
     evolution = None
-    if total_avant_hier > 0:
-        evolution = round(((total_hier - total_avant_hier) / total_avant_hier) * 100)
+    if total_veille > 0:
+        evolution = round(((total_jour - total_veille) / total_veille) * 100)
 
     return {
+        "date": jour_ref.strftime('%Y-%m-%d'),
+        "est_aujourdhui": est_aujourdhui,
         "total_jour": total_jour,
-        "total_hier": total_hier,
         "frp_max_jour": round(frp_max_jour, 1) if frp_max_jour else None,
         "regions_actives": len(regions_actives_noms),
         "regions_actives_noms": regions_actives_noms,

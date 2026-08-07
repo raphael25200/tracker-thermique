@@ -452,7 +452,10 @@
 {% endblock %}
 {% block extra_scripts %}
 	<script>
-		const carte = L.map('carte', {
+		const URL_API_EVENEMENTS = "{{ url_for('api_evenements') }}";
+const URL_API_KPI = "{{ url_for('api_kpi') }}";
+
+const carte = L.map('carte', {
 minZoom: 2.5,
 zoomSnap: 0.5,
 maxBounds: [
@@ -550,12 +553,13 @@ return {radius: radius, blur: blur};
 }
 
 function chargerEvenements(date) {
+chargerKPI(date);
 document.getElementById('indicateurChargement').classList.add('actif');
 groupeClusters.clearLayers();
 groupeSansCluster.clearLayers();
 coucheSatelliteVrai.setUrl('https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/' + date + '/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg');
 
-fetch('/api/evenements?date=' + date).then(function (response) {
+fetch(URL_API_EVENEMENTS + '?date=' + date).then(function (response) {
 return response.json();
 }).then(function (data) {
 const grille = {};
@@ -677,6 +681,15 @@ document.getElementById('btnReinitFiltres').addEventListener('click', function (
 fp.setDate(dateDuJourStr, true);
 });
 
+setTimeout(function () {
+carte.invalidateSize();
+}, 100);
+
+window.addEventListener('resize', function () {
+carte.invalidateSize();
+});
+
+
 chargerEvenements(inputDate.value);
 
 const boutonHaut = document.getElementById('scrollTop');
@@ -699,32 +712,26 @@ document.getElementById('fermerAide').addEventListener('click', function () {
 document.getElementById('panneauAide').classList.remove('visible');
 });
 
-function chargerKPI() {
-fetch('/api/kpi').then(function (response) {
+function chargerKPI(date) {
+fetch(URL_API_KPI + '?date=' + date).then(function (response) {
 return response.json();
 }).then(function (data) {
-let html = `<span title="Nombre de détections thermiques enregistrées aujourd'hui — donnée incomplète, le satellite n'a pas encore effectué tous ses passages"><strong>${
-data.total_jour
-}</strong> détections aujourd'hui (partiel)</span>`;
+const suffixe = data.est_aujourdhui ? ' (jour en cours, donnees partielles)' : '';
+let html = '<span title="Nombre de detections thermiques pour cette date"><strong>' + data.total_jour + '</strong> detections' + suffixe + '</span>';
 
 if (data.evolution_pct !== null) {
 const classe = data.evolution_pct >= 0 ? 'tendance-hausse' : 'tendance-baisse';
 const signe = data.evolution_pct >= 0 ? '+' : '';
-html += ` · <span class="${classe}" title="Comparaison entre hier et avant-hier, deux journées complètes — plus fiable que d'inclure aujourd'hui">${signe}${
-data.evolution_pct
-}% (tendance)</span>`;
+const infoTendance = data.est_aujourdhui ? 'Comparaison avec la veille (jour en cours incomplet, comparaison indicative)' : 'Comparaison avec la veille';
+html += ' \u00b7 <span class="' + classe + '" title="' + infoTendance + '">' + signe + data.evolution_pct + '% vs veille</span>';
 }
 
 if (data.frp_max_jour) {
-html += ` · <span title="Puissance radiative (FRP) la plus élevée détectée aujourd'hui. À titre de repère : quelques MW = feu modeste, 50+ MW = incendie majeur">pic d'intensité : ${
-data.frp_max_jour
-} MW</span>`;
+html += ' \u00b7 <span title="Puissance radiative (FRP) la plus elevee ce jour-la. A titre de repere : quelques MW = feu modeste, 50+ MW = incendie majeur">pic d intensite : ' + data.frp_max_jour + ' MW</span>';
 }
 
 const nomsRegions = data.regions_actives_noms.join(', ') || 'aucune';
-html += ` · <span title="Régions avec au moins une détection aujourd'hui : ${nomsRegions}">${
-data.regions_actives
-} région(s) active(s)</span>`;
+html += ' \u00b7 <span title="Regions avec au moins une detection ce jour : ' + nomsRegions + '">' + data.regions_actives + ' region(s) active(s)</span>';
 
 document.getElementById('kpiContainer').innerHTML = html;
 }).catch(function () {
@@ -732,6 +739,6 @@ document.getElementById('kpiContainer').textContent = 'Statistiques indisponible
 });
 }
 
-chargerKPI();
+chargerKPI(inputDate.value);
 	</script>
 {% endblock %}

@@ -4,8 +4,8 @@ instance/
 __pycache__/
 *.pyc
 .env
-verifier_index.py
-verifier_dates_brutes.py
-verifier_dates.py
-verifier_historique.py
-test.py
+scripts/test.py
+scripts/verifier_dates_brutes.py
+scripts/verifier_dates.py
+scripts/verifier_historique.py
+scripts/verifier_index.py
