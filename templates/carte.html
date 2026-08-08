@@ -34,7 +34,7 @@
 			</div>
 			<div class="groupe-filtre groupe-couches">
 				<label class="switch-couche" title="Regroupe les détections proches en clusters numérotés">
-					<input type="checkbox" id="toggleClusters">
+					<input type="checkbox" id="toggleClusters" checked>
 					Groupés
 				</label>
 				<label class="switch-couche" title="Affiche chaque détection individuellement, sans regroupement">
@@ -42,7 +42,7 @@
 					Détaillé
 				</label>
 				<label class="switch-couche" title="Densité cumulée : le rouge peut venir d'un gros foyer ou de nombreux petits foyers proches">
-					<input type="checkbox" id="toggleChaleur" checked>
+					<input type="checkbox" id="toggleChaleur">
 					Chaleur
 				</label>
 			</div>
@@ -498,7 +498,7 @@ gradient: {
 }
 });
 
-carte.addLayer(coucheChaleur);
+carte.addLayer(groupeClusters);
 
 document.querySelectorAll('input[name="fond"]').forEach(function (radio) {
 radio.addEventListener('change', function () {
@@ -635,6 +635,7 @@ const contenuPic = '<strong>🔥 Pic du jour</strong><br>' + evenementPic.date +
 markerPic = L.marker([
 evenementPic.latitude, evenementPic.longitude
 ], {icon: icone}).bindPopup(contenuPic).addTo(carte);
+markerPic.setZIndexOffset(1000);
 }
 }
 
