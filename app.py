@@ -264,15 +264,7 @@ def api_evenements():
 
     data = []
     for e in evenements:
-        data.append({
-            "id": e.id,
-            "latitude": e.latitude,
-            "longitude": e.longitude,
-            "intensite": e.intensite,
-            "frp": e.frp,
-            "date": e.date.strftime('%Y-%m-%d'),
-            "description": e.description
-        })
+        data.append([e.id, e.latitude, e.longitude, e.frp])
 
     return {"evenements": data}
 
@@ -412,6 +404,19 @@ def api_kpi():
         "regions_actives": len(regions_actives_noms),
         "regions_actives_noms": regions_actives_noms,
         "evolution_pct": evolution
+    }
+
+@app.route('/api/evenement/<int:id>')
+def api_evenement_detail(id):
+    e = Evenement.query.get_or_404(id)
+    return {
+        "date": e.date.strftime('%Y-%m-%d'),
+        "heure": e.heure,
+        "latitude": e.latitude,
+        "longitude": e.longitude,
+        "description": e.description,
+        "daynight": e.daynight,
+        "confidence": e.confidence
     }
 
 if __name__ == '__main__':

@@ -454,6 +454,7 @@
 	<script>
 		const URL_API_EVENEMENTS = "{{ url_for('api_evenements') }}";
 const URL_API_KPI = "{{ url_for('api_kpi') }}";
+const URL_API_DETAIL = "{{ url_for('api_evenement_detail', id=0) }}";
 
 const carte = L.map('carte', {
 minZoom: 2.5,
@@ -564,7 +565,13 @@ return response.json();
 }).then(function (data) {
 const grille = {};
 
-data.evenements.forEach(function (e) {
+data.evenements.forEach(function (item) {
+const e = {
+id: item[0],
+latitude: item[1],
+longitude: item[2],
+frp: item[3]
+};
 const couleur = e.frp >= 20 ? 'red' : e.frp >= 8 ? 'orange' : 'yellow';
 const stylePoint = {
 radius: calculerRayon(),
@@ -577,16 +584,36 @@ const point1 = L.circleMarker([
 e.latitude, e.longitude
 ], stylePoint);
 point1.on('click', function () {
-const contenu = '<strong>' + e.date + '</strong><br>' + e.description + '<br><br>Coordonnees : ' + e.latitude.toFixed(4) + ', ' + e.longitude.toFixed(4) + '<br><a href="https://www.google.com/maps?q=' + e.latitude + ',' + e.longitude + '" target="_blank">Voir sur Google Maps</a>';
+const mentionGroupe = '';
+fetch(URL_API_DETAIL.replace('/0', '/' + e.id)).then(function (response) {
+return response.json();
+}).then(function (detail) {
+const momentJour = detail.daynight === 'D' ? 'Jour' : detail.daynight === 'N' ? 'Nuit' : '?';
+const contenu = '<strong>' + detail.date + ' - ' + (
+detail.heure || '?'
+) + '</strong>' + mentionGroupe + '<br>' + detail.description + '<br>' + momentJour + ' \u00b7 confiance : ' + (
+detail.confidence || '?'
+) + '<br><br>Coordonnees : ' + detail.latitude.toFixed(4) + ', ' + detail.longitude.toFixed(4) + '<br><a href="https://www.google.com/maps?q=' + detail.latitude + ',' + detail.longitude + '" target="_blank">Voir sur Google Maps</a>';
 point1.bindPopup(contenu).openPopup();
+});
 });
 
 const point2 = L.circleMarker([
 e.latitude, e.longitude
 ], stylePoint);
 point2.on('click', function () {
-const contenu = '<strong>' + e.date + '</strong><br>' + e.description + '<br><br>Coordonnees : ' + e.latitude.toFixed(4) + ', ' + e.longitude.toFixed(4) + '<br><a href="https://www.google.com/maps?q=' + e.latitude + ',' + e.longitude + '" target="_blank">Voir sur Google Maps</a>';
+const mentionGroupe = '';
+fetch(URL_API_DETAIL.replace('/0', '/' + e.id)).then(function (response) {
+return response.json();
+}).then(function (detail) {
+const momentJour = detail.daynight === 'D' ? 'Jour' : detail.daynight === 'N' ? 'Nuit' : '?';
+const contenu = '<strong>' + detail.date + ' - ' + (
+detail.heure || '?'
+) + '</strong>' + mentionGroupe + '<br>' + detail.description + '<br>' + momentJour + ' \u00b7 confiance : ' + (
+detail.confidence || '?'
+) + '<br><br>Coordonnees : ' + detail.latitude.toFixed(4) + ', ' + detail.longitude.toFixed(4) + '<br><a href="https://www.google.com/maps?q=' + detail.latitude + ',' + detail.longitude + '" target="_blank">Voir sur Google Maps</a>';
 point2.bindPopup(contenu).openPopup();
+});
 });
 
 groupeClusters.addLayer(point1);
@@ -618,10 +645,16 @@ carte.removeLayer(markerPic);
 markerPic = null;
 }
 
-if (data.evenements.length > 0) {
-const evenementPic = data.evenements.reduce(function (max, e) {
-return(e.frp > (max.frp || 0)) ? e : max;
-}, {});
+const evenementPicItem = data.evenements.reduce(function (max, item) {
+return(item[3] > (max[3] || 0)) ? item : max;
+}, [null, null, null, 0]);
+
+const evenementPic = {
+id: evenementPicItem[0],
+latitude: evenementPicItem[1],
+longitude: evenementPicItem[2],
+frp: evenementPicItem[3]
+};
 
 if (evenementPic.frp) {
 const icone = L.divIcon({
@@ -631,12 +664,23 @@ iconSize: [
 ],
 iconAnchor: [5, 5]
 });
-const contenuPic = '<strong>🔥 Pic du jour</strong><br>' + evenementPic.date + '<br>' + evenementPic.description + '<br><br>Coordonnees : ' + evenementPic.latitude.toFixed(4) + ', ' + evenementPic.longitude.toFixed(4) + '<br><a href="https://www.google.com/maps?q=' + evenementPic.latitude + ',' + evenementPic.longitude + '" target="_blank">Voir sur Google Maps</a>';
 markerPic = L.marker([
 evenementPic.latitude, evenementPic.longitude
-], {icon: icone}).bindPopup(contenuPic).addTo(carte);
+], {icon: icone}).addTo(carte);
+markerPic.on('click', function () {
+fetch(URL_API_DETAIL.replace('/0', '/' + evenementPic.id)).then(function (response) {
+return response.json();
+}).then(function (detail) {
+const momentJour = detail.daynight === 'D' ? 'Jour' : detail.daynight === 'N' ? 'Nuit' : '?';
+const contenuPic = '<strong>\ud83d\udd25 Pic du jour - ' + detail.date + ' ' + (
+detail.heure || '?'
+) + '</strong><br>' + detail.description + '<br>' + momentJour + ' \u00b7 confiance : ' + (
+detail.confidence || '?'
+) + '<br><br>Coordonnees : ' + detail.latitude.toFixed(4) + ', ' + detail.longitude.toFixed(4) + '<br><a href="https://www.google.com/maps?q=' + detail.latitude + ',' + detail.longitude + '" target="_blank">Voir sur Google Maps</a>';
+markerPic.bindPopup(contenuPic).openPopup();
+});
+});
 markerPic.setZIndexOffset(1000);
-}
 }
 
 coucheChaleur.setLatLngs(pointsChaleur);
