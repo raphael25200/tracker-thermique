@@ -109,6 +109,11 @@
 		<p>Les régions de référence sont : Europe, Amérique du Nord, Amérique du Sud, Afrique, Asie, Océanie — découpées par grandes zones géographiques approximatives, pas par frontières précises.</p>
 	</div>
 
+	<div id="overlayChargement" class="overlay-chargement">
+		<div class="spinner-grand"></div>
+		<div id="texteProgression">Chargement...</div>
+	</div>
+
 	<div id="carte"></div>
 
 	<button class="scroll-top" id="scrollTop" title="Retour en haut">↑</button>
@@ -131,6 +136,39 @@
 		.main {
 			max-width: none;
 			padding: 0;
+		}
+
+		.overlay-chargement {
+			display: none;
+			position: fixed;
+			top: 0;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			background: rgba(13, 19, 33, 0.75);
+			z-index: 5000;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			gap: 1rem;
+		}
+		.overlay-chargement.visible {
+			display: flex;
+		}
+
+		.spinner-grand {
+			width: 40px;
+			height: 40px;
+			border: 4px solid var(--border);
+			border-top-color: var(--amber);
+			border-radius: 50%;
+			animation: tourner 0.8s linear infinite;
+		}
+
+		#texteProgression {
+			color: var(--text);
+			font-family: var(--font-mono);
+			font-size: 0.9rem;
 		}
 
 		#carte {
@@ -556,6 +594,11 @@ return {radius: radius, blur: blur};
 function chargerEvenements(date) {
 chargerKPI(date);
 document.getElementById('indicateurChargement').classList.add('actif');
+const overlay = document.getElementById('overlayChargement');
+const texteProgression = document.getElementById('texteProgression');
+overlay.classList.add('visible');
+texteProgression.textContent = 'Chargement...';
+
 groupeClusters.clearLayers();
 groupeSansCluster.clearLayers();
 coucheSatelliteVrai.setUrl('https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/' + date + '/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg');
@@ -563,15 +606,14 @@ coucheSatelliteVrai.setUrl('https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/M
 fetch(URL_API_EVENEMENTS + '?date=' + date).then(function (response) {
 return response.json();
 }).then(function (data) {
+const items = data.evenements;
+const total = items.length;
 const grille = {};
+let picItem = [null, null, null, 0];
+const taillePaquet = 2000;
+let index = 0;
 
-data.evenements.forEach(function (item) {
-const e = {
-id: item[0],
-latitude: item[1],
-longitude: item[2],
-frp: item[3]
-};
+function creerPoint(e) {
 const couleur = e.frp >= 20 ? 'red' : e.frp >= 8 ? 'orange' : 'yellow';
 const stylePoint = {
 radius: calculerRayon(),
@@ -584,14 +626,13 @@ const point1 = L.circleMarker([
 e.latitude, e.longitude
 ], stylePoint);
 point1.on('click', function () {
-const mentionGroupe = '';
 fetch(URL_API_DETAIL.replace('/0', '/' + e.id)).then(function (response) {
 return response.json();
 }).then(function (detail) {
 const momentJour = detail.daynight === 'D' ? 'Jour' : detail.daynight === 'N' ? 'Nuit' : '?';
 const contenu = '<strong>' + detail.date + ' - ' + (
 detail.heure || '?'
-) + '</strong>' + mentionGroupe + '<br>' + detail.description + '<br>' + momentJour + ' \u00b7 confiance : ' + (
+) + '</strong><br>' + detail.description + '<br>' + momentJour + ' \u00b7 confiance : ' + (
 detail.confidence || '?'
 ) + '<br><br>Coordonnees : ' + detail.latitude.toFixed(4) + ', ' + detail.longitude.toFixed(4) + '<br><a href="https://www.google.com/maps?q=' + detail.latitude + ',' + detail.longitude + '" target="_blank">Voir sur Google Maps</a>';
 point1.bindPopup(contenu).openPopup();
@@ -602,14 +643,13 @@ const point2 = L.circleMarker([
 e.latitude, e.longitude
 ], stylePoint);
 point2.on('click', function () {
-const mentionGroupe = '';
 fetch(URL_API_DETAIL.replace('/0', '/' + e.id)).then(function (response) {
 return response.json();
 }).then(function (detail) {
 const momentJour = detail.daynight === 'D' ? 'Jour' : detail.daynight === 'N' ? 'Nuit' : '?';
 const contenu = '<strong>' + detail.date + ' - ' + (
 detail.heure || '?'
-) + '</strong>' + mentionGroupe + '<br>' + detail.description + '<br>' + momentJour + ' \u00b7 confiance : ' + (
+) + '</strong><br>' + detail.description + '<br>' + momentJour + ' \u00b7 confiance : ' + (
 detail.confidence || '?'
 ) + '<br><br>Coordonnees : ' + detail.latitude.toFixed(4) + ', ' + detail.longitude.toFixed(4) + '<br><a href="https://www.google.com/maps?q=' + detail.latitude + ',' + detail.longitude + '" target="_blank">Voir sur Google Maps</a>';
 point2.bindPopup(contenu).openPopup();
@@ -618,6 +658,20 @@ point2.bindPopup(contenu).openPopup();
 
 groupeClusters.addLayer(point1);
 groupeSansCluster.addLayer(point2);
+}
+
+function traiterPaquet() {
+const fin = Math.min(index + taillePaquet, total);
+for (; index < fin; index++) {
+const item = items[index];
+const e = {
+id: item[0],
+latitude: item[1],
+longitude: item[2],
+frp: item[3]
+};
+
+creerPoint(e);
 
 const cleGrille = Math.round(e.latitude * 4) / 4 + ',' + Math.round(e.longitude * 4) / 4;
 if (! grille[cleGrille]) {
@@ -630,8 +684,22 @@ lon: e.longitude
 }
 grille[cleGrille].total += e.frp;
 grille[cleGrille].nb += 1;
-});
 
+if (item[3] > picItem[3]) {
+picItem = item;
+}
+}
+
+texteProgression.textContent = index + ' / ' + total + ' detections';
+
+if (index < total) {
+setTimeout(traiterPaquet, 0);
+} else {
+finaliser();
+}
+}
+
+function finaliser() {
 const pointsChaleur = Object.values(grille).map(function (g) {
 return [
 g.lat,
@@ -639,21 +707,18 @@ g.lon,
 g.total / g.nb
 ];
 });
+coucheChaleur.setLatLngs(pointsChaleur);
 
 if (markerPic) {
 carte.removeLayer(markerPic);
 markerPic = null;
 }
 
-const evenementPicItem = data.evenements.reduce(function (max, item) {
-return(item[3] > (max[3] || 0)) ? item : max;
-}, [null, null, null, 0]);
-
 const evenementPic = {
-id: evenementPicItem[0],
-latitude: evenementPicItem[1],
-longitude: evenementPicItem[2],
-frp: evenementPicItem[3]
+id: picItem[0],
+latitude: picItem[1],
+longitude: picItem[2],
+frp: picItem[3]
 };
 
 if (evenementPic.frp) {
@@ -683,11 +748,19 @@ markerPic.bindPopup(contenuPic).openPopup();
 markerPic.setZIndexOffset(1000);
 }
 
-coucheChaleur.setLatLngs(pointsChaleur);
 document.getElementById('indicateurChargement').classList.remove('actif');
+overlay.classList.remove('visible');
+}
+
+if (total === 0) {
+finaliser();
+} else {
+traiterPaquet();
+}
 }).catch(function (erreur) {
 console.error('Erreur de chargement:', erreur);
 document.getElementById('indicateurChargement').classList.remove('actif');
+overlay.classList.remove('visible');
 });
 }
 
