@@ -1,12 +1,14 @@
 # Tracker thermique par satellite
 
-![Statut](https://img.shields.io/badge/statut-en%20d%C3%A9veloppement-orange)
-![Python](https://img.shields.io/badge/Python-3.13-blue)
-![Flask](https://img.shields.io/badge/Flask-3.x-black)
+![Statut](https://img.shields.io/badge/statut-en%20ligne-brightgreen)
+![Python](<https://img.shields.io/badge/Python-3.13%20(dev)%20%2F%203.7%20(prod)-blue>)
+![Flask](<https://img.shields.io/badge/Flask-3.x%20(dev)%20%2F%202.2%20(prod)-black>)
+
+**Site en ligne :** [navarroraphael.fr/projets/tracker](https://navarroraphael.fr/projets/tracker/)
 
 ## English summary
 
-A Flask web application that tracks satellite thermal detections worldwide, using NASA FIRMS (VIIRS) open data. Features an interactive map (clusters, heatmap, true-color satellite imagery via NASA GIBS), a filterable scientific data page with CSV export, and daily/historical import tools. Built as a learning project to move from PHP/Symfony toward Python/Flask, developed with heavy AI-assisted pair-programming (Claude) — see the _Approche de développement_ section below for an honest account of what was autonomous vs. assisted. **Important:** this tool detects thermal anomalies, not confirmed wildfires — see _Limites connues_.
+A Flask web application that tracks satellite thermal detections worldwide, using NASA FIRMS (VIIRS) open data. **Live at [navarroraphael.fr/projets/tracker](https://navarroraphael.fr/projets/tracker/)**, running on shared hosting with a daily automated import (Cron). Features an interactive map (clusters, heatmap, true-color satellite imagery via NASA GIBS), a filterable scientific data page with CSV export, and daily/historical import tools. Built as a learning project to move from PHP/Symfony toward Python/Flask, developed with heavy AI-assisted pair-programming (Claude) — see the _Approche de développement_ section below for an honest account of what was autonomous vs. assisted. **Important:** this tool detects thermal anomalies, not confirmed wildfires — see _Limites connues_.
 
 ---
 
@@ -33,16 +35,19 @@ Ce projet est né d'un test d'apprentissage Python/Flask (dans la continuité d'
 
 **Administration** (connexion requise)
 
-- Import manuel depuis FIRMS (zone mondiale, jusqu'à 5 jours de couverture)
-- Script d'import historique par tranches, avec bascule automatique entre données archivées (SP) et temps réel (NRT)
+- Import manuel depuis FIRMS (zone mondiale, jusqu'à 5 jours de couverture), ou automatique quotidien
+- Scripts d'import historique et de maintenance (`scripts/`), avec bascule automatique entre données archivées (SP) et temps réel (NRT)
 - CRUD complet sur les événements
 
 ## Stack technique
 
-- **Backend** : Python, Flask, SQLAlchemy, Flask-Login
-- **Base de données** : SQLite (développement) — migration MySQL prévue pour la mise en ligne
+- **Backend** : Python, Flask, SQLAlchemy, Flask-Login, Flask-WTF, Flask-Limiter
+- **Base de données** : SQLite (développement) / MySQL 8.4 (production)
 - **Frontend** : Jinja2, CSS natif (design system maison), Leaflet.js (cartographie), Flatpickr (calendrier)
 - **Données** : [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/) (VIIRS NOAA-20), [NASA GIBS](https://wiki.earthdata.nasa.gov/display/GIBS) (imagerie satellite)
+- **Déploiement** : hébergement mutualisé OVH, CGI (pas de support WSGI natif sur cette offre), import quotidien automatisé par tâche planifiée (Cron)
+
+Le détail des contraintes de production (versions figées, dépendances incompatibles, réseau) est documenté dans [`PROJECT.md`](./PROJECT.md).
 
 ## Limites connues (important)
 
@@ -70,7 +75,7 @@ Autres limites à connaître :
 
 ## Statut et déploiement
 
-Projet actuellement en développement local (SQLite), avec migration en cours vers un hébergement en ligne (MySQL, hébergement mutualisé OVH). Le script `migrer_vers_mysql.py` gère le transfert des données par lots.
+**En ligne depuis août 2026** sur un hébergement mutualisé OVH (hosting-pro). L'import quotidien des détections est entièrement automatisé (tâche Cron), avec une purge automatique des données de plus de 180 jours pour rester dans le quota de stockage disponible. Voir [`PROJECT.md`](./PROJECT.md) pour le détail des décisions d'architecture et des contraintes découvertes en cours de déploiement.
 
 ## Installation
 
