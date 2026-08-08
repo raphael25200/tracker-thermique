@@ -65,6 +65,26 @@ Autres limites à connaître :
 - **Carte de chaleur** : une zone rouge peut représenter un seul foyer intense ou de nombreux petits foyers proches (ex. brûlage agricole en Afrique) — la densité cumulée ne distingue pas les deux cas
 - **Photo satellite réelle (GIBS)** : résolution limitée à un niveau de zoom modéré, et parfois des zones sans image (le satellite ne couvre pas systématiquement toute la planète chaque jour)
 
+## Captures d'écran
+
+**Vue d'ensemble mondiale, points groupés**
+![Carte avec points groupés](./screenshots/carte-groupes.png)
+
+**Carte de chaleur avec détail du pic du jour**
+![Carte de chaleur avec popup](./screenshots/carte-chaleur.png)
+
+**Panneau d'aide intégré**
+![Panneau d'aide](./screenshots/panneau-aide.png)
+
+**Page données : filtres scientifiques et export CSV**
+![Page données avec filtres](./screenshots/donnees-filtres-export.png)
+
+**Exemple de limite documentée : détection sur une centrale solaire**
+
+Une détection thermique repérée sur des panneaux photovoltaïques (pas un incendie) — illustre concrètement pourquoi ce tracker affiche des _détections thermiques_, pas des _incendies confirmés_, et pourquoi la position d'un point peut sembler légèrement décalée par rapport à la source réelle visible en imagerie (résolution native du capteur ≈375m).
+
+![Détection sur centrale solaire, illustrant les limites de précision](./screenshots/precision-detection.png)
+
 ## Sécurité
 
 - Authentification requise pour toute action d'administration (import, ajout, modification, suppression)
