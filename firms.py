@@ -32,17 +32,24 @@ def determiner_region(lat, lon):
     return "autre"
 
 
-def recuperer_incendies(zone="world", jours=5, seuil_intensite=330, confiance_min='n'):
+def recuperer_incendies(zone="world", jours=5, seuil_intensite=330, confiance_min='n', source="VIIRS_NOAA20_NRT", date_debut=None):
     cle = os.getenv('FIRMS_API_KEY')
-    url = f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/{cle}/VIIRS_NOAA20_NRT/{zone}/{jours}"
+    if date_debut:
+        url = f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/{cle}/{source}/{zone}/{jours}/{date_debut}"
+    else:
+        url = f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/{cle}/{source}/{zone}/{jours}"
 
+    import urllib.error
     try:
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
         requete = urllib.request.Request(url, headers=headers)
         with urllib.request.urlopen(requete, timeout=60) as reponse:
             contenu = reponse.read().decode('utf-8')
+    except urllib.error.HTTPError as e:
+        corps_erreur = e.read().decode('utf-8', errors='replace')
+        return None, f"Erreur FIRMS {e.code} : {corps_erreur[:300]} — URL : {url}"
     except Exception as e:
-        return None, f"Erreur lors de la récupération des données FIRMS : {e}"
+        return None, f"Erreur lors de la récupération des données FIRMS : {e} — URL appelée : {url}"
 
     if not contenu or contenu.startswith("Please limit"):
         return None, f"Réponse invalide de FIRMS : {contenu[:200]}"
