@@ -32,11 +32,11 @@ def importer_nouvelles_donnees():
         return 0, erreur
 
     existants = db.session.query(Evenement.date, Evenement.latitude, Evenement.longitude).all()
-    set_existants = set(existants)
+    set_existants = set((d, round(lat, 4), round(lon, 4)) for d, lat, lon in existants)
 
     nouveaux = []
     for item in resultats:
-        cle = (item['date'], item['latitude'], item['longitude'])
+        cle = (item['date'], round(item['latitude'], 4), round(item['longitude'], 4))
         if cle in set_existants:
             continue
 
@@ -63,14 +63,22 @@ def main():
     print(f"[{horodatage}] Debut de la tache cron")
 
     with app.app_context():
-        nb_ajoutes, erreur = importer_nouvelles_donnees()
-        if erreur:
-            print(f"  ERREUR import : {erreur}")
-        else:
-            print(f"  {nb_ajoutes} nouveaux evenements importes")
+        try:
+            nb_ajoutes, erreur = importer_nouvelles_donnees()
+            if erreur:
+                print(f"  ERREUR import : {erreur}")
+            else:
+                print(f"  {nb_ajoutes} nouveaux evenements importes")
+        except Exception as e:
+            print(f"  ERREUR import (exception) : {e}")
+            db.session.rollback()
 
-        nb_supprimes = purger_anciennes_donnees()
-        print(f"  {nb_supprimes} evenements purges (plus de {LIMITE_RETENTION_JOURS} jours)")
+        try:
+            nb_supprimes = purger_anciennes_donnees()
+            print(f"  {nb_supprimes} evenements purges (plus de {LIMITE_RETENTION_JOURS} jours)")
+        except Exception as e:
+            print(f"  ERREUR purge : {e}")
+            db.session.rollback()
 
         total_actuel = Evenement.query.count()
         print(f"  Total en base : {total_actuel}")
