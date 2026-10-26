@@ -68,22 +68,22 @@ Autres limites à connaître :
 ## Captures d'écran
 
 **Vue d'ensemble mondiale, points groupés**
-![Carte avec points groupés](./screenshots/carte-groupes.png)
+![Carte avec points groupés](./screenshots/carte-groupes.webp)
 
-**Carte de chaleur avec détail du pic du jour**
-![Carte de chaleur avec popup](./screenshots/carte-chaleur.png)
+**Carte de chaleur (densité cumulée des détections)**
+![Carte de chaleur](./screenshots/carte-chaleur.webp)
 
 **Panneau d'aide intégré**
-![Panneau d'aide](./screenshots/panneau-aide.png)
+![Panneau d'aide](./screenshots/panneau-aide.webp)
 
 **Page données : filtres scientifiques et export CSV**
-![Page données avec filtres](./screenshots/donnees-filtres-export.png)
+![Page données avec filtres](./screenshots/donnees-filtres-export.webp)
 
 **Exemple de limite documentée : détection sur une centrale solaire**
 
 Une détection thermique repérée sur des panneaux photovoltaïques (pas un incendie) — illustre concrètement pourquoi ce tracker affiche des _détections thermiques_, pas des _incendies confirmés_, et pourquoi la position d'un point peut sembler légèrement décalée par rapport à la source réelle visible en imagerie (résolution native du capteur ≈375m).
 
-![Détection sur centrale solaire, illustrant les limites de précision](./screenshots/precision-detection.png)
+![Détection sur centrale solaire, illustrant les limites de précision](./screenshots/precision-detection.webp)
 
 ## Sécurité
 
