@@ -23,7 +23,7 @@ class Evenement(db.Model):
     region = db.Column(db.String(30), nullable=True, index=True)
     type_evenement = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text, nullable=True)
-    source_url = db.Column(db.String(500), nullable=True, unique=True)
+    source_url = db.Column(db.String(500), nullable=True)
     latitude = db.Column(db.Float, nullable=True)
     longitude = db.Column(db.Float, nullable=True)
     intensite = db.Column(db.Float, nullable=True)

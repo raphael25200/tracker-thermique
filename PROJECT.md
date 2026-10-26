@@ -67,8 +67,9 @@ Symptôme : base à plus de 8 M de lignes alors que le volume réel est de 27 à
 Cause : MySQL renvoie les colonnes FLOAT avec 6 chiffres significatifs via le protocole texte. Une longitude supérieure ou égale à 100 perd donc une décimale (178.7477 relue 178.748), et la clé de déduplication ne correspondait plus. Environ 80 % des détections étaient réimportées à chaque exécution horaire du cron.
 Correction : coordonnées stockées arrondies à 4 décimales, comparées côté SQL avec `ROUND(col, 4)`, requête des clés existantes limitée aux dates reçues (`firms.cle_detection`, `cron_quotidien.py`, `app.py` route `/importer`, `scripts/import_historique.py`).
 Nettoyage : `scripts/dedoublonner.py` (simulation par défaut, `--appliquer` pour supprimer). 6 183 335 doublons supprimés (8,66 M à 2,38 M de lignes).
-Ordre du cron : purge, puis import, puis plafond de sécurité (5 000 000 de lignes). OVH bloque aussi les DELETE en cas de dépassement de quota : la purge doit passer avant l'import.
+Ordre du cron : purge, puis import, puis plafond de sécurité (2 600 000 lignes). OVH bloque aussi les DELETE en cas de dépassement de quota : la purge doit passer avant l'import.
 Cron : horaire, à la minute 6 (`6 * * * *`). La journée UTC est ré-importée à chaque passage, la déduplication rend cela sans effet.
+Mesure du 26/10/2026 (information_schema) : 914 Mo de données et 523 Mo d'index pour 2,1 M de lignes, soit environ 700 octets par ligne (l'estimation initiale de 250 était fausse). Rétention ramenée de 60 à 45 jours (environ 63 % du quota), plafond abaissé à 2 600 000 lignes. Index `source_url` (unique, toujours NULL) supprimé : `ALTER TABLE evenement DROP INDEX source_url;`. Index `region` (cardinalité 3) à réévaluer avec EXPLAIN.
 Tests : `python -m unittest discover -s tests -v` (8 tests).
 
 ## 5. Décisions d'architecture (historique, pour ne pas revenir dessus sans raison)
@@ -124,5 +125,5 @@ Détections thermiques ≠ incendies confirmés. Peuvent être : feux de forêt,
 - Contrôle : `python3 cron_quotidien.py` (affiche purge, import, total) et logs cron dans l'espace client.
 - Doublons : `python3 scripts/dedoublonner.py` (simulation), puis `--appliquer`.
 - Mot de passe perdu : `python3 scripts/reset_password.py NOM_UTILISATEUR` (à lancer sur le serveur).
-- Volume attendu : environ 2,4 M de lignes à 60 jours, alerte si le total dépasse 3 M.
+- Volume attendu : environ 1,8 M de lignes à 45 jours (environ 700 octets par ligne, données et index), alerte si le total dépasse 2,4 M.
 - Après tout changement de colonne ou d'import : relancer les tests en local, puis la simulation de dédoublonnage sur le serveur.

@@ -55,15 +55,16 @@ class TestRetention(unittest.TestCase):
         self.ctx.pop()
 
     def test_purge_supprime_uniquement_l_ancien_par_lots(self):
-        ajouter(self.aujourdhui - timedelta(days=61), 7, 10.0)
-        ajouter(self.aujourdhui - timedelta(days=59), 5, 11.0)
+        limite = cron.LIMITE_RETENTION_JOURS
+        ajouter(self.aujourdhui - timedelta(days=limite + 1), 7, 10.0)
+        ajouter(self.aujourdhui - timedelta(days=limite - 1), 5, 11.0)
         ajouter(self.aujourdhui, 4, 12.0)
         with patch.object(cron, 'TAILLE_LOT_PURGE', 3):  # force plusieurs lots
             supprimes = cron.purger_anciennes_donnees()
         self.assertEqual(supprimes, 7)
         self.assertEqual(Evenement.query.count(), 9)
         self.assertEqual(Evenement.query.filter(
-            Evenement.date < self.aujourdhui - timedelta(days=60)).count(), 0)
+            Evenement.date < self.aujourdhui - timedelta(days=limite)).count(), 0)
 
     def test_plafond_supprime_les_jours_les_plus_anciens(self):
         ajouter(self.aujourdhui - timedelta(days=3), 10, 10.0)

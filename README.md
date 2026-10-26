@@ -95,13 +95,13 @@ Une détection thermique repérée sur des panneaux photovoltaïques (pas un inc
 
 ## Statut et déploiement
 
-**En ligne depuis août 2026** sur un hébergement mutualisé OVH (hosting-pro). L'import quotidien des détections est entièrement automatisé (tâche Cron), avec une purge automatique des données de plus de 60 jours pour rester dans le quota de stockage disponible. Voir [`PROJECT.md`](./PROJECT.md) pour le détail des décisions d'architecture et des contraintes découvertes en cours de déploiement.
+**En ligne depuis août 2026** sur un hébergement mutualisé OVH (hosting-pro). L'import quotidien des détections est entièrement automatisé (tâche Cron), avec une purge automatique des données de plus de 45 jours pour rester dans le quota de stockage disponible. Voir [`PROJECT.md`](./PROJECT.md) pour le détail des décisions d'architecture et des contraintes découvertes en cours de déploiement.
 
 ## Conservation des données
 
-Les détections sont conservées sur **60 jours glissants**. Le cron quotidien (`cron_quotidien.py`) purge d'abord les données plus anciennes, par lots, puis importe les détections du jour. Cet ordre est volontaire : une base proche du quota doit se libérer de la place avant d'écrire.
+Les détections sont conservées sur **45 jours glissants**. Le cron quotidien (`cron_quotidien.py`) purge d'abord les données plus anciennes, par lots, puis importe les détections du jour. Cet ordre est volontaire : une base proche du quota doit se libérer de la place avant d'écrire.
 
-Un plafond de lignes (`PLAFOND_LIGNES`) sert de filet de sécurité : s'il est dépassé, les jours les plus anciens sont supprimés, même dans la fenêtre de 60 jours. Il évite d'atteindre le quota MySQL de l'hébergement (2 Go), au-delà duquel la base passe en lecture seule, ce qui bloque aussi les suppressions.
+Un plafond de lignes (`PLAFOND_LIGNES`) sert de filet de sécurité : s'il est dépassé, les jours les plus anciens sont supprimés, même dans la fenêtre de 45 jours. Il évite d'atteindre le quota MySQL de l'hébergement (2 Go), au-delà duquel la base passe en lecture seule, ce qui bloque aussi les suppressions.
 
 Le calendrier de la carte est limité à la période réellement disponible. Pour changer la durée, modifier `LIMITE_RETENTION_JOURS` dans `cron_quotidien.py`.
 

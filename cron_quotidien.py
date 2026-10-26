@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 """
-Script destine au Cron OVH : purge des donnees de plus de 60 jours, puis import
+Script destine au Cron OVH : purge des donnees de plus de 45 jours, puis import
 quotidien des detections FIRMS, pour rester sous le quota de la base.
 La purge passe AVANT l'import : une base proche du quota doit d'abord se liberer
 de la place, sinon l'import echoue et plus rien ne la vide.
@@ -18,12 +18,13 @@ from app import app, db
 from models import Evenement
 from firms import recuperer_incendies, cle_detection
 
-LIMITE_RETENTION_JOURS = 60
+LIMITE_RETENTION_JOURS = 45
 TAILLE_LOT_PURGE = 10000  # lignes supprimees par transaction (evite un DELETE geant)
 # Filet de securite : au-dela de ce nombre de lignes, les jours les plus anciens sont
 # supprimes meme s'ils sont dans la fenetre de retention. Estimation a ajuster apres
-# mesure : environ 250 octets par ligne, donc 5 000 000 lignes = environ 1,25 Go.
-PLAFOND_LIGNES = 5000000
+# mesure du 26/10/2026 : environ 700 octets par ligne (donnees + index), donc
+# 2 600 000 lignes = environ 1,7 Go pour un quota de 2 Go.
+PLAFOND_LIGNES = 2600000
 
 
 def _supprimer_par_lots(condition):
