@@ -26,6 +26,8 @@ Suivre les détections thermiques satellite (NASA FIRMS/VIIRS) dans le monde, av
 - **SQLAlchemy** : 2.0 en local, **1.4.49 forcé en production** — 2.0 dépend de `greenlet`, qui nécessite une compilation C impossible sur ce mutualisé (`gcc` absent)
 - **pandas** : utilisé dans les scripts locaux (`scripts/import_historique.py`), **banni de `firms.py`** (remplacé par `csv`/`urllib` natifs) — pandas/numpy ne compilent pas sur ce serveur (`failed to map segment from shared object`)
 
+- **Versions exactes du serveur** : fichier `requirements-prod.txt` (relevé par `pip freeze --user` le 26/10/2026)
+
 **Piège à ne pas retomber dedans** : toute nouvelle dépendance ajoutée en local doit être testée manuellement sur le serveur (`pip install --user ...`) avant de supposer qu'elle fonctionnera en production — l'environnement OVH est nettement plus restrictif que le local.
 
 ## 4. Contraintes réseau de l'hébergement (découvertes à l'usage, coûteuses en temps)
