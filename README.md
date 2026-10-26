@@ -8,7 +8,7 @@
 
 ## English summary
 
-A Flask web application that tracks satellite thermal detections worldwide, using NASA FIRMS (VIIRS) open data. **Live at [navarroraphael.fr/projets/tracker](https://navarroraphael.fr/projets/tracker/)**, running on shared hosting with a daily automated import (Cron). Features an interactive map (clusters, heatmap, true-color satellite imagery via NASA GIBS), a filterable scientific data page with CSV export, and daily/historical import tools. Built as a learning project to move from PHP/Symfony toward Python/Flask, developed with heavy AI-assisted pair-programming (Claude) — see the _Approche de développement_ section below for an honest account of what was autonomous vs. assisted. **Important:** this tool detects thermal anomalies, not confirmed wildfires — see _Limites connues_.
+A Flask web application that tracks satellite thermal detections worldwide, using NASA FIRMS (VIIRS) open data. **Live at [navarroraphael.fr/projets/tracker](https://navarroraphael.fr/projets/tracker/)**, running on shared hosting with an hourly automated import (Cron). Features an interactive map (clusters, heatmap, true-color satellite imagery via NASA GIBS), a filterable scientific data page with CSV export, and daily/historical import tools. Built as a learning project to move from PHP/Symfony toward Python/Flask, developed with heavy AI-assisted pair-programming (Claude) — see the _Approche de développement_ section below for an honest account of what was autonomous vs. assisted. **Important:** this tool detects thermal anomalies, not confirmed wildfires — see _Limites connues_.
 
 ---
 
@@ -35,7 +35,7 @@ Ce projet est né d'un test d'apprentissage Python/Flask (dans la continuité d'
 
 **Administration** (connexion requise)
 
-- Import manuel depuis FIRMS (zone mondiale, jusqu'à 5 jours de couverture), ou automatique quotidien
+- Import manuel depuis FIRMS (zone mondiale, jusqu'à 5 jours de couverture), ou automatique toutes les heures
 - Scripts d'import historique et de maintenance (`scripts/`), avec bascule automatique entre données archivées (SP) et temps réel (NRT)
 - CRUD complet sur les événements
 
@@ -45,7 +45,7 @@ Ce projet est né d'un test d'apprentissage Python/Flask (dans la continuité d'
 - **Base de données** : SQLite (développement) / MySQL 8.4 (production)
 - **Frontend** : Jinja2, CSS natif (design system maison), Leaflet.js (cartographie), Flatpickr (calendrier)
 - **Données** : [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/) (VIIRS NOAA-20), [NASA GIBS](https://wiki.earthdata.nasa.gov/display/GIBS) (imagerie satellite)
-- **Déploiement** : hébergement mutualisé OVH, CGI (pas de support WSGI natif sur cette offre), import quotidien automatisé par tâche planifiée (Cron)
+- **Déploiement** : hébergement mutualisé OVH, CGI (pas de support WSGI natif sur cette offre), import automatisé toutes les heures par tâche planifiée (Cron)
 
 Le détail des contraintes de production (versions figées, dépendances incompatibles, réseau) est documenté dans [`PROJECT.md`](./PROJECT.md).
 
@@ -95,11 +95,11 @@ Une détection thermique repérée sur des panneaux photovoltaïques (pas un inc
 
 ## Statut et déploiement
 
-**En ligne depuis août 2026** sur un hébergement mutualisé OVH (hosting-pro). L'import quotidien des détections est entièrement automatisé (tâche Cron), avec une purge automatique des données de plus de 45 jours pour rester dans le quota de stockage disponible. Voir [`PROJECT.md`](./PROJECT.md) pour le détail des décisions d'architecture et des contraintes découvertes en cours de déploiement.
+**En ligne depuis août 2026** sur un hébergement mutualisé OVH (hosting-pro). L'import des détections est entièrement automatisé, toutes les heures (tâche Cron), avec une purge automatique des données de plus de 45 jours pour rester dans le quota de stockage disponible. Voir [`PROJECT.md`](./PROJECT.md) pour le détail des décisions d'architecture et des contraintes découvertes en cours de déploiement.
 
 ## Conservation des données
 
-Les détections sont conservées sur **45 jours glissants**. Le cron quotidien (`cron_quotidien.py`) purge d'abord les données plus anciennes, par lots, puis importe les détections du jour. Cet ordre est volontaire : une base proche du quota doit se libérer de la place avant d'écrire.
+Les détections sont conservées sur **45 jours glissants**. Le cron horaire (`cron_quotidien.py`) purge d'abord les données plus anciennes, par lots, puis importe les détections de la journée en cours ; les doublons sont ignorés. Cet ordre est volontaire : une base proche du quota doit se libérer de la place avant d'écrire.
 
 Un plafond de lignes (`PLAFOND_LIGNES`) sert de filet de sécurité : s'il est dépassé, les jours les plus anciens sont supprimés, même dans la fenêtre de 45 jours. Il évite d'atteindre le quota MySQL de l'hébergement (2 Go), au-delà duquel la base passe en lecture seule, ce qui bloque aussi les suppressions.
 
@@ -114,6 +114,8 @@ python -m venv venv
 venv\Scripts\Activate.ps1   # Windows
 pip install -r requirements.txt
 ```
+
+Les versions installées sur le serveur de production (Python 3.7, Flask 2.2.5, SQLAlchemy 1.4.49) sont listées dans `requirements-prod.txt`. Ce fichier est une référence : il ne s'utilise pas en local.
 
 Copier `.env.example` en `.env` et renseigner :
 
