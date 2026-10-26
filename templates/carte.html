@@ -104,6 +104,9 @@
 		<h3>Précision de la position</h3>
 		<p>Chaque détection correspond à un pixel satellite d'environ 375 mètres de côté — la position affichée est donc approximative, pas un point exact au mètre près. Sur la vue "Photo réelle", il est normal qu'un point semble légèrement décalé par rapport à la source visible sur l'image (bâtiment, installation) — le point marque le centre du pixel détecté, pas la source exacte.</p>
 
+		<h3>Période disponible</h3>
+		<p>Pour limiter le volume de données stocké, les détections sont conservées sur les 60 derniers jours. Les dates plus anciennes ne sont pas consultables sur la carte : le calendrier ne propose que la période disponible. Les données brutes d'origine restent accessibles auprès de la NASA (<a href="https://firms.modaps.eosdis.nasa.gov/" target="_blank" rel="noopener">FIRMS</a>).</p>
+
 		<h3>La ligne de statistiques</h3>
 		<p>Sous la barre de contrôle : le nombre de détections du jour (incomplet tant que la journée n'est pas terminée), la tendance calculée entre hier et avant-hier (deux jours pleinement couverts), le pic d'intensité radiative (FRP) du jour, et les régions du monde actuellement actives.</p>
 		<p>Les régions de référence sont : Europe, Amérique du Nord, Amérique du Sud, Afrique, Asie, Océanie — découpées par grandes zones géographiques approximatives, pas par frontières précises.</p>
@@ -769,7 +772,11 @@ const inputDate = document.getElementById('dateChoisie');
 const dateDuJour = new Date();
 const dateDuJourStr = dateDuJour.toISOString().split('T')[0];
 inputDate.value = dateDuJourStr;
+// Premiere date disponible en base (null si la base est vide) : le calendrier ne propose que la periode reelle.
+const DATE_MIN = {{ (date_min.strftime('%Y-%m-%d') if date_min else None)|tojson }};
 const fp = flatpickr(inputDate, {
+minDate: DATE_MIN,
+maxDate: dateDuJourStr,
 dateFormat: "Y-m-d",
 altInput: true,
 altFormat: "d/m/Y",
@@ -783,6 +790,9 @@ function decalerJour(delta) {
 const d = new Date(inputDate.value);
 d.setDate(d.getDate() + delta);
 const nouvelleDate = d.toISOString().split('T')[0];
+if ((DATE_MIN && nouvelleDate < DATE_MIN) || nouvelleDate > dateDuJourStr) {
+return;
+}
 fp.setDate(nouvelleDate, true);
 }
 

@@ -32,6 +32,14 @@ def determiner_region(lat, lon):
     return "autre"
 
 
+def cle_detection(date, lat, lon):
+    """Cle de deduplication d'une detection.
+    La base stocke les coordonnees en simple precision (FLOAT) : une valeur lue dans
+    le CSV FIRMS et la meme valeur relue depuis la base different a la 7e decimale.
+    On compare donc toujours des coordonnees arrondies a 4 decimales (environ 11 m)."""
+    return (date, round(float(lat), 4), round(float(lon), 4))
+
+
 def recuperer_incendies(zone="world", jours=5, seuil_intensite=330, confiance_min='n', source="VIIRS_NOAA20_NRT", date_debut=None):
     cle = os.getenv('FIRMS_API_KEY')
     if date_debut:

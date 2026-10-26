@@ -12,8 +12,10 @@ import pandas as pd
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 
+from sqlalchemy import func
 from app import app, db
 from models import Evenement
+from firms import cle_detection
 
 load_dotenv()
 
@@ -77,8 +79,10 @@ def main():
     print("-" * 60)
 
     with app.app_context():
-        existants = db.session.query(Evenement.date, Evenement.latitude, Evenement.longitude).all()
-        set_existants = set(existants)
+        existants = db.session.query(
+            Evenement.date, func.round(Evenement.latitude, 4), func.round(Evenement.longitude, 4)).filter(
+            Evenement.latitude.isnot(None), Evenement.longitude.isnot(None)).all()
+        set_existants = set(cle_detection(d, lat, lon) for d, lat, lon in existants)
         print(f"{len(set_existants)} evenements deja en base (verification anti-doublon active)")
 
         date_courante = date_debut_totale
@@ -121,7 +125,7 @@ def main():
                 date_evt = datetime.strptime(str(ligne['acq_date']), "%Y-%m-%d").date()
                 lat = ligne['latitude']
                 lon = ligne['longitude']
-                cle_dedupe = (date_evt, lat, lon)
+                cle_dedupe = cle_detection(date_evt, lat, lon)
 
                 if cle_dedupe in set_existants:
                     continue
@@ -136,8 +140,8 @@ def main():
                     region=determiner_region(lat, lon),
                     type_evenement="Incendie",
                     description=f"Intensite detectee : {ligne['bright_ti4']} K, FRP : {ligne['frp']} MW",
-                    latitude=lat,
-                    longitude=lon,
+                    latitude=round(float(lat), 4),
+                    longitude=round(float(lon), 4),
                     intensite=ligne['bright_ti4'],
                     frp=ligne['frp'],
                     satellite=ligne['satellite'],

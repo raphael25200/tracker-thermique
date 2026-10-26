@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, Response
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from models import User, db, Evenement
 from datetime import datetime
-from firms import recuperer_incendies
+from firms import recuperer_incendies, cle_detection
 from datetime import timedelta
 from dotenv import load_dotenv
 import os
@@ -32,6 +32,10 @@ limiter = Limiter(
 )
 
 derniere_maj = {"date": None, "heure": None}
+
+# Bornes cote serveur : l'interface les respecte deja, mais une URL peut demander n'importe quoi.
+PAR_PAGE_MAX = 1000
+JOURS_MAX_API = 7
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -92,7 +96,7 @@ def donnees():
     confidence = request.args.get('confidence', '')
     daynight = request.args.get('daynight', '')
     satellite = request.args.get('satellite', '')
-    par_page = request.args.get('par_page', default=200, type=int)
+    par_page = min(max(request.args.get('par_page', default=200, type=int), 1), PAR_PAGE_MAX)
     page = request.args.get('page', default=1, type=int)
     pixel_max = request.args.get('pixel_max', type=float)
 
@@ -147,7 +151,8 @@ def donnees():
 
 @app.route('/')
 def home():
-    return render_template('carte.html')
+    date_min = db.session.query(func.min(Evenement.date)).scalar()
+    return render_template('carte.html', date_min=date_min)
 
 @app.route('/evenement/<int:id>')
 def evenement(id):
@@ -198,15 +203,19 @@ def importer():
         if erreur:
             return render_template('importer.html', erreur=erreur, ajoutes=0)
 
+        dates_recues = list({item['date'] for item in resultats})
         existants = db.session.query(
-            Evenement.date, Evenement.latitude, Evenement.longitude
+            Evenement.date, func.round(Evenement.latitude, 4), func.round(Evenement.longitude, 4)
+        ).filter(
+            Evenement.date.in_(dates_recues),
+            Evenement.latitude.isnot(None), Evenement.longitude.isnot(None)
         ).all()
-        set_existants = set(existants)
+        set_existants = set(cle_detection(d, lat, lon) for d, lat, lon in existants)
 
         nb_ajoutes = 0
         nouveaux_evenements = []
         for item in resultats:
-            cle = (item['date'], item['latitude'], item['longitude'])
+            cle = cle_detection(item['date'], item['latitude'], item['longitude'])
             if cle in set_existants:
                 continue
 
@@ -217,8 +226,8 @@ def importer():
                 region=item['region'],
                 type_evenement="Incendie",
                 description=f"Intensité détectée : {item['intensite']} K, FRP : {item['frp']} MW",
-                latitude=item['latitude'],
-                longitude=item['longitude'],
+                latitude=round(item['latitude'], 4),
+                longitude=round(item['longitude'], 4),
                 intensite=item['intensite'],
                 frp=item['frp'],
                 satellite=item['satellite'],
@@ -254,7 +263,7 @@ def api_evenements():
             Evenement.date == date_cible
         ).all()
     else:
-        jours = request.args.get('jours', default=1, type=int)
+        jours = min(max(request.args.get('jours', default=1, type=int), 0), JOURS_MAX_API)
         date_limite = datetime.now().date() - timedelta(days=jours)
         evenements = Evenement.query.filter(
             Evenement.latitude.isnot(None),
