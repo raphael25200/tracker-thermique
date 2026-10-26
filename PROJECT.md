@@ -34,7 +34,7 @@ Suivre les détections thermiques satellite (NASA FIRMS/VIIRS) dans le monde, av
 - **Le contexte shell/SSH/Cron classique a un accès réseau sortant bloqué** (même vers son propre domaine, même en HTTP simple) — mais **le contexte CGI/web ne l'est pas**
 - **Conséquence pratique** : `cron_quotidien.py` (qui appelle FIRMS) fonctionne **directement en tâche Cron OVH classique**, à condition d'utiliser le bon chemin absolu (`www/projets/tracker/...`, pas de raccourci) — pas besoin du détour CGI+curl qu'on a construit puis abandonné
 - **Logs Cron** : consultables dans Hébergement → Statistiques et logs → filtre "cron", pas dans l'onglet de configuration lui-même
-- **Incident clé FIRMS (08/2026)** : la clé API a été partagée en clair pendant une session de débogage (chat), et une hypothèse de "clé limitée/invalide" a été explorée pour expliquer un trou d'import Cron de 2 jours — écartée après vérification via `mapkey_status`. La clé reste valide, mais par prudence elle devrait être régénérée (bonne pratique après exposition, même pour une clé en lecture seule sur données publiques) — **à faire, pas encore fait**.
+- **Incident clé FIRMS (08/2026)** : la clé API a été partagée en clair pendant une session de débogage (chat), et une hypothèse de "clé limitée/invalide" a été explorée pour expliquer un trou d'import Cron de 2 jours — écartée après vérification via `mapkey_status`. La clé reste valide, mais par prudence elle devrait être régénérée (bonne pratique après exposition, même pour une clé en lecture seule sur données publiques) — **faite : clé régénérée le 26/10/2026**.
 
 ## 4bis. Incident quota MySQL (08/2026) — chronologie et corrections retenues
 
@@ -44,7 +44,7 @@ Suivre les détections thermiques satellite (NASA FIRMS/VIIRS) dans le monde, av
 
 **Corrections de code retenues** (dans `cron_quotidien.py`) :
 
-- Arrondi des coordonnées à 4 décimales (`round(lat, 4)`, `round(lon, 4)`) uniquement dans la clé de comparaison de déduplication, sans toucher aux valeurs stockées
+- Arrondi des coordonnées à 4 décimales dans la clé de comparaison de déduplication — correction **insuffisante** (les doublons ont continué jusqu'en octobre), voir §4ter pour la correction définitive
 - Purge découplée de l'import via des blocs `try/except` indépendants dans `main()`, pour que la purge s'exécute même si l'import échoue
 
 **Fenêtre de rétention réduite** : 180 → **60 jours** (voir aussi §5). Avec un volume réel mesuré autour de 25-70k lignes/jour (donnée assainie), 60 jours représente un budget large sous le quota de 2 Go, avec marge pour la variabilité saisonnière.
@@ -58,6 +58,16 @@ Suivre les détections thermiques satellite (NASA FIRMS/VIIRS) dans le monde, av
 **Leçon** : après correction d'une route Flask, toujours revérifier côté serveur (`grep`/`sed -n` sur le fichier réel) avant de la solliciter à nouveau — ne jamais supposer qu'un transfert a réussi.
 
 **État final** : 2 771 706 lignes couvrant le 18/06 au 17/08 (le 15-17/06 déjà purgé par la fenêtre de 60 jours), base à 666,98 Mo/2 Go. Route de comblement et secret associé retirés après usage.
+
+## 4ter. Récidive des doublons (10/2026) — cause réelle et correction définitive
+
+Symptôme : base à plus de 8 M de lignes alors que le volume réel est de 27 à 47 k détections par jour (environ 40 k).
+Cause : MySQL renvoie les colonnes FLOAT avec 6 chiffres significatifs via le protocole texte. Une longitude supérieure ou égale à 100 perd donc une décimale (178.7477 relue 178.748), et la clé de déduplication ne correspondait plus. Environ 80 % des détections étaient réimportées à chaque exécution horaire du cron.
+Correction : coordonnées stockées arrondies à 4 décimales, comparées côté SQL avec `ROUND(col, 4)`, requête des clés existantes limitée aux dates reçues (`firms.cle_detection`, `cron_quotidien.py`, `app.py` route `/importer`, `scripts/import_historique.py`).
+Nettoyage : `scripts/dedoublonner.py` (simulation par défaut, `--appliquer` pour supprimer). 6 183 335 doublons supprimés (8,66 M à 2,38 M de lignes).
+Ordre du cron : purge, puis import, puis plafond de sécurité (5 000 000 de lignes). OVH bloque aussi les DELETE en cas de dépassement de quota : la purge doit passer avant l'import.
+Cron : horaire, à la minute 6 (`6 * * * *`). La journée UTC est ré-importée à chaque passage, la déduplication rend cela sans effet.
+Tests : `python -m unittest discover -s tests -v` (8 tests).
 
 ## 5. Décisions d'architecture (historique, pour ne pas revenir dessus sans raison)
 
@@ -86,7 +96,6 @@ Détections thermiques ≠ incendies confirmés. Peuvent être : feux de forêt,
 **Non fait, discuté et mis en attente** :
 
 - Assistant IA conversationnel (question en langage naturel → requête structurée sécurisée → réponse) — architecture pensée (function calling, jamais de SQL généré directement exécuté), pas commencé, clé API à créer
-- Régénération de la clé FIRMS (exposée en clair pendant une session de debug, cf. §4) — recommandée, pas encore faite
 - Captures d'écran dans le README (à faire une fois l'UI stabilisée)
 - Filtre par précision de pixel (`scan`/`track`) — discuté et **volontairement écarté** (contraire à l'objectif de vue continue), gardé seulement comme information affichée
 
@@ -94,7 +103,7 @@ Détections thermiques ≠ incendies confirmés. Peuvent être : feux de forêt,
 
 - Sécurité (CSRF, limitation de connexion, debug conditionnel)
 - Déploiement complet OVH (CGI, MySQL, Git sur serveur)
-- Cron quotidien fonctionnel (import + purge), réglé sur 1h du matin, fréquence quotidienne
+- Cron quotidien fonctionnel (import + purge), fréquence horaire (minute 6), voir §4ter
 - KPI dynamique par date, export CSV avec limite de volume (50 000 lignes max, contrainte réelle de performance mutualisée)
 - Diagnostic et résolution complète de l'incident quota MySQL (§4bis) : correction du bug de déduplication, réduction de rétention, comblement du trou de données, nettoyage des quasi-doublons introduits pendant le comblement
 
@@ -105,3 +114,13 @@ Détections thermiques ≠ incendies confirmés. Peuvent être : feux de forêt,
 3. Toute nouvelle dépendance Python : tester sur le serveur avant de considérer que c'est acquis
 4. Toute modification de `app.py`/`models.py`/`firms.py`/templates : transférer en production (`scp` ou `git pull` depuis le serveur) et vérifier en ligne, pas seulement en local
 5. Après toute modification d'une route Flask déployée par `scp`, revérifier côté serveur (`grep`/`sed -n` sur le fichier réel) avant de la solliciter à nouveau — ne jamais supposer qu'un transfert a réussi (cf. §4bis)
+
+## 9. Exploitation (serveur OVH)
+
+- Accès : `ssh navarrw@ssh.cluster100.hosting.ovh.net`, dossier `~/www/projets/tracker`, commande `python3`.
+- Déploiement : `scp` depuis PowerShell des fichiers modifiés, puis vérification par `grep` sur le fichier du serveur. `app.cgi`, `.htaccess` et `.env` ne sont pas versionnés.
+- Contrôle : `python3 cron_quotidien.py` (affiche purge, import, total) et logs cron dans l'espace client.
+- Doublons : `python3 scripts/dedoublonner.py` (simulation), puis `--appliquer`.
+- Mot de passe perdu : `python3 scripts/reset_password.py NOM_UTILISATEUR` (à lancer sur le serveur).
+- Volume attendu : environ 2,4 M de lignes à 60 jours, alerte si le total dépasse 3 M.
+- Après tout changement de colonne ou d'import : relancer les tests en local, puis la simulation de dédoublonnage sur le serveur.
